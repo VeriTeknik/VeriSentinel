@@ -93,8 +93,10 @@ export const insertSiteSchema = createInsertSchema(sites).pick({
 export const devices = pgTable("devices", {
   id: serial("id").primaryKey(),
   siteId: integer("site_id").notNull(),
+  parentDeviceId: integer("parent_device_id"),  // For hierarchical connections
   name: text("name").notNull(),
-  type: text("type").notNull(), // server, network, storage
+  type: text("type").notNull(), // server, network, storage, firewall, router, switch
+  deviceRole: text("device_role"),  // edge, core, distribution, access, endpoint
   ipAddress: text("ip_address"),
   vlan: text("vlan"),
   operatingSystem: text("operating_system"),
@@ -104,8 +106,10 @@ export const devices = pgTable("devices", {
 
 export const insertDeviceSchema = createInsertSchema(devices).pick({
   siteId: true,
+  parentDeviceId: true,
   name: true,
   type: true,
+  deviceRole: true,
   ipAddress: true,
   vlan: true,
   operatingSystem: true,

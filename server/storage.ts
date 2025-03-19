@@ -59,6 +59,8 @@ export interface IStorage {
   createDevice(device: InsertDevice): Promise<Device>;
   getDevice(id: number): Promise<Device | undefined>;
   listDevices(siteId?: number): Promise<Device[]>;
+  listDeviceChildren(parentDeviceId: number): Promise<Device[]>;
+  listTopLevelDevices(siteId: number): Promise<Device[]>;
   
   // Change request management
   createChangeRequest(changeRequest: InsertChangeRequest): Promise<ChangeRequest>;
@@ -275,8 +277,10 @@ export class MemStorage implements IStorage {
     const newDevice: Device = { 
       id,
       siteId: device.siteId,
+      parentDeviceId: device.parentDeviceId || null,
       name: device.name,
       type: device.type,
+      deviceRole: device.deviceRole || null,
       status: device.status,
       ipAddress: device.ipAddress || null,
       vlan: device.vlan || null,
@@ -297,6 +301,16 @@ export class MemStorage implements IStorage {
       return devices.filter(device => device.siteId === siteId);
     }
     return devices;
+  }
+  
+  async listDeviceChildren(parentDeviceId: number): Promise<Device[]> {
+    return Array.from(this.deviceData.values())
+      .filter(device => device.parentDeviceId === parentDeviceId);
+  }
+  
+  async listTopLevelDevices(siteId: number): Promise<Device[]> {
+    return Array.from(this.deviceData.values())
+      .filter(device => device.siteId === siteId && device.parentDeviceId === null);
   }
   
   // Change request management
@@ -531,6 +545,18 @@ export class PostgresStorage implements IStorage {
       return await db.select().from(devices).where(eq(devices.siteId, siteId));
     }
     return await db.select().from(devices);
+  }
+  
+  async listDeviceChildren(parentDeviceId: number): Promise<Device[]> {
+    return await db.select().from(devices).where(eq(devices.parentDeviceId, parentDeviceId));
+  }
+  
+  async listTopLevelDevices(siteId: number): Promise<Device[]> {
+    return await db.select().from(devices)
+      .where(and(
+        eq(devices.siteId, siteId),
+        isNull(devices.parentDeviceId)
+      ));
   }
 
   // Change request management
