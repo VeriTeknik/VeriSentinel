@@ -1,0 +1,131 @@
+Verisentinel – Foundation Document & Project Scope
+1. Overview and Purpose
+Verisentinel is an open-source, monolithic compliance and infrastructure monitoring tool designed for small to medium organizations. It integrates core requirements from PCI DSS, ISO 27001, and select controls from other standards into a unified compliance framework. This approach reduces unknowns by presenting a single source of truth for managing, storing, transmitting, and computing confidential resources. Additionally, Verisentinel attaches risk-based severity ratings to compliance items, allowing organizations to prioritize remediation efforts effectively.
+
+Verisentinel is built with a strong focus on security, modularity, and future extensibility. The system combines a pre-populated compliance checklist with integrated hardware inventory management, an interactive topology wizard, a lightweight task & sprint management system, and controlled change request workflows—all delivered via a modern Next.js application with TypeScript and shadcn/ui for an optimal developer and user experience.
+
+2. Goals and Objectives
+Streamline Compliance: Automate routine PCI DSS checks, evidence collection, and reporting to reduce manual overhead and ensure continuous audit readiness.
+Improve Infrastructure Visibility: Maintain a current hardware inventory and generate a dynamic network topology, mapping devices, servers, storage, and virtualization details to compliance tasks.
+Simplify Asset Registration: Use an interactive wizard to guide users through registering sites (Primary, Disaster Recovery, Branch Offices), active network devices, servers, storage systems, and virtual environments.
+Enhance Change Management: Enable controlled processes for critical change requests (e.g., Firewall Change Requests) with role-based workflows—requesting, approving, and implementing changes.
+Facilitate Task Management: Provide a simple in-built task and sprint management system with progress tracking, deadlines, and notifications, with hooks for optional integrations (e.g., Slack, Linear).
+Ensure Security and Auditability: Implement robust RBAC, domain-restricted sign-up, 2FA, encrypted storage, and detailed audit logging.
+Promote Code Quality & Maintainability: Adopt coding preferences and workflow practices that emphasize simplicity, code reuse, clear separation of concerns, and thorough testing.
+3. Core Functional Requirements
+3.1 Unified Compliance Framework & Severity Mapping
+Integrated Controls: Combines essential controls from PCI DSS, ISO 27001, and other standards.
+Severity Ratings: Each control is assigned a risk-based severity level (High, Medium, Low) to help prioritize remediation.
+Automated Evidence Collection & Reporting: Automatically gathers evidence and generates audit-ready Markdown reports.
+3.2 Hardware Inventory and Topology Wizard
+Asset Registration: Guided wizard for registering sites, network devices, servers, storage systems, and virtualization details (VLANs, IPs, OS, services).
+Dynamic Topology Generation: Visual network topology with compliance metrics overlays and severity indicators.
+3.3 Change Management Module (Firewall Change Requests)
+Change Request Workflow: Multi-step process for submitting, approving, and implementing change requests.
+Audit Logging: Complete traceability of each change request and its approval process.
+3.4 Task and Sprint Management Module
+Lightweight Kanban Board: Track compliance and security-related tasks with progress, deadlines, and notifications.
+Optional External Integration Hooks: Enable simple integrations with tools like Slack for notifications and Linear for advanced task management.
+3.5 Modular External Integrations
+APIs and Webhooks: Expose RESTful endpoints and support webhooks for integrating with external systems.
+Configurable Modules: Allow external integrations (e.g., Slack, Linear) to be toggled on/off via configuration.
+3.6 Security and Audit Logging
+Robust Security: Implement RBAC, secure registration (domain restrictions, 2FA), and encrypted storage.
+Comprehensive Logging: Detailed audit logs for all critical actions across compliance, change management, and task management modules.
+4. Technology Stack
+Frontend: Next.js with TypeScript and shadcn/ui, styled with Tailwind CSS.
+Backend: Next.js API Routes (Node.js with TypeScript) serving as the monolithic backend.
+Database: PostgreSQL for all structured data (compliance controls, inventory, tasks, logs, user info).
+Caching & Background Jobs: Optional Redis for caching and job scheduling.
+Containerization: Docker (with Docker Compose for local development; Kubernetes/Helm for production).
+CI/CD: GitHub Actions (or similar) for testing, building, and deployment.
+Authentication: NextAuth.js for user management, supporting 2FA and domain restrictions.
+Visualization: D3.js (or equivalent) for network topology rendering.
+5. Implementation Modules
+5.1 Compliance Checklist Module
+Data Models:
+ComplianceControl: id, name, description, frequency, severity, status, lastChecked, comments.
+Evidence: id, controlId, filePath, uploadedBy, timestamp.
+Business Logic:
+API routes (e.g., /api/compliance-controls) to manage tasks.
+Scheduled tasks for auto-creating recurring controls using a background job (Bull/CRON).
+Reporting:
+Markdown report generation and display via shadcn/ui components.
+5.2 Hardware Inventory & Topology Wizard
+Data Models:
+Site: id, name, type, location.
+Device: id, siteId, type, details (IP, VLAN, OS, services).
+Wizard Flow:
+Multi-step forms built with shadcn/ui guiding the registration of sites, devices, and virtualization details.
+Visualization:
+Render network topology using D3.js integrated into Next.js pages.
+API Endpoints:
+CRUD routes for sites and devices (/api/sites, /api/devices, /api/topology).
+5.3 Change Management Module (Firewall Change Requests)
+Data Models:
+ChangeRequest: id, type, details, status, requesterId, approverId, implementerId, timestamps, comments.
+Workflow:
+API routes for managing change requests and multi-step approval processes.
+Notification triggers for each workflow stage.
+UI Components:
+Forms and dashboards for submitting, reviewing, and approving change requests.
+5.4 Task & Sprint Management Module
+Data Models:
+Task: id, title, description, status, assignedTo, dueDate, relatedControl, createdAt, updatedAt.
+Sprint: id, name, startDate, endDate, taskIds.
+Implementation:
+Kanban board interface using React drag-and-drop libraries.
+API endpoints (/api/tasks, /api/sprints) for managing tasks and sprints.
+Built-in progress tracking and deadline notifications.
+Optional Integrations:
+Hooks for external systems like Linear and Slack.
+5.5 Modular External Integrations
+Design:
+Define clear TypeScript interfaces for integration modules.
+Provide default implementations for email notifications.
+Optional modules for Slack and Linear that activate based on configuration.
+API & Webhooks:
+Expose endpoints and secure webhooks to facilitate external interactions.
+5.6 Security & Audit Logging
+Implementation:
+NextAuth.js for user management with RBAC, 2FA, and domain restrictions.
+Middleware for securing API routes.
+Audit log table and API endpoint (/api/audit-logs) for capturing and retrieving logs.
+6. Coding AI Preferences & Coding Workflow
+Coding Preferences:
+Keep It Simple: Always prefer simple solutions.
+Avoid Duplication: Reuse code by checking for existing implementations.
+Environment Awareness: Write code that works in dev, test, and prod environments.
+Targeted Changes: Only modify requested or well-understood parts of the codebase.
+Maintain Consistency: When fixing bugs, avoid introducing new patterns unless necessary; remove old logic to prevent duplication.
+Clean Codebase: Keep the code organized and well-structured.
+File Size: Avoid files over 200-300 lines; refactor as needed.
+Data Mocking: Use mocked data only in tests, not in dev or prod environments.
+.env Caution: Never overwrite the .env file without explicit confirmation.
+Coding Workflow Preferences:
+Focus on Relevant Areas: Only touch code relevant to the current task.
+Preserve Stability: Do not alter unrelated code or established patterns unless explicitly instructed.
+Thorough Testing: Write comprehensive tests for major functionality.
+Minimal Disruption: Avoid making major changes to stable features unless necessary.
+Impact Awareness: Always consider how changes affect other parts of the system.
+7. Deployment & DevOps
+Docker: Create Dockerfiles for the Next.js application and use Docker Compose for local development.
+CI/CD: Set up GitHub Actions for testing, linting, building, and deploying Docker images.
+Environment Management: Use environment variables for secrets and configurations, and handle them securely.
+Monitoring: Implement health-check endpoints and consider using tools like Prometheus for monitoring.
+8. Documentation & Developer Guidance
+Code Organization:
+Structure code in Next.js with clear directories: /pages/api for API routes, /components for UI components, and /modules for business logic.
+Developer Docs:
+Provide detailed README files, inline code comments, and contribution guidelines.
+API Documentation:
+Use OpenAPI/Swagger for documenting all RESTful endpoints.
+User Guides:
+Create comprehensive guides covering installation, configuration, usage, and integrations.
+9. Best Practices & Considerations
+Security: Follow OWASP recommendations, enforce encryption, and perform regular vulnerability scans.
+Modular Design: Ensure internal modules communicate through clear interfaces.
+Testing: Implement unit and integration tests using Jest and React Testing Library.
+User Feedback: Release early versions, gather feedback, and iterate accordingly.
+Performance & Scalability: Optimize SSR and API performance, using caching (Redis) where applicable.
+Documentation: Keep documentation up-to-date for both developers and end-users

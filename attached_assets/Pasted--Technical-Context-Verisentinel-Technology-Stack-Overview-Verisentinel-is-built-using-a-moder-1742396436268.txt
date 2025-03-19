@@ -1,0 +1,451 @@
+# Technical Context: Verisentinel
+
+## Technology Stack Overview
+
+Verisentinel is built using a modern, JavaScript-based technology stack centered around Next.js. This stack was chosen for its developer productivity, performance characteristics, and suitability for building complex web applications.
+
+### Core Technologies
+
+| Category | Technology | Purpose |
+|----------|------------|---------|
+| **Framework** | Next.js | Full-stack React framework providing both frontend and API capabilities |
+| **Language** | TypeScript | Strongly-typed superset of JavaScript for improved code quality |
+| **UI Library** | React | Component-based UI library for building interactive interfaces |
+| **UI Components** | shadcn/ui v4 | High-quality, accessible UI components built on Radix UI |
+| **Styling** | Tailwind CSS | Utility-first CSS framework for rapid UI development |
+| **Database** | PostgreSQL | Relational database for structured data storage |
+| **Authentication** | NextAuth.js | Authentication solution for Next.js applications |
+| **Visualization** | D3.js | Data visualization library for network topology rendering |
+| **Form Handling** | React Hook Form | Performance-focused form library with validation |
+| **Validation** | Zod | TypeScript-first schema validation library |
+| **State Management** | React Context + React Query | Server and client state management |
+| **Localization** | next-i18next | Internationalization and localization support with single source of code |
+| **Testing** | Jest + React Testing Library | Unit and integration testing |
+
+### Optional Technologies
+
+| Category | Technology | Purpose |
+|----------|------------|---------|
+| **Caching** | Redis | In-memory data store for caching and job queues |
+| **Job Processing** | Bull | Redis-based queue for background job processing |
+| **Monitoring** | Prometheus | Metrics collection and monitoring |
+| **Logging** | Winston | Structured logging library |
+
+## Development Environment
+
+### Prerequisites
+
+- Node.js (v18+)
+- npm (v8+) or yarn (v1.22+)
+- Docker and Docker Compose
+- PostgreSQL (local or containerized)
+- Redis (optional, local or containerized)
+
+### Local Setup
+
+```bash
+# Clone repository
+git clone https://github.com/organization/verisentinel.git
+cd verisentinel
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env.local
+
+# Start development database
+docker-compose up -d db
+
+# Run database migrations
+npm run db:migrate
+
+# Seed initial data
+npm run db:seed
+
+# Start development server
+npm run dev
+```
+
+### Environment Variables
+
+```
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/verisentinel
+
+# Authentication
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your-secret-key
+ALLOWED_DOMAINS=example.com,example.org
+
+# Redis (optional)
+REDIS_URL=redis://localhost:6379
+
+# Feature Flags
+ENABLE_REDIS_CACHE=false
+ENABLE_BACKGROUND_JOBS=false
+ENABLE_EXTERNAL_INTEGRATIONS=false
+
+# Localization
+DEFAULT_LOCALE=en
+SUPPORTED_LOCALES=en,es,fr,de,tr
+```
+
+## Project Structure
+
+```
+verisentinel/
+├── .github/                # GitHub workflows and templates
+├── components/             # Reusable React components
+│   ├── ui/                 # Base UI components from shadcn/ui
+│   ├── compliance/         # Compliance module components
+│   ├── inventory/          # Hardware inventory components
+│   ├── change-management/  # Change management components
+│   ├── tasks/              # Task management components
+│   └── common/             # Shared components
+├── lib/                    # Shared utilities and helpers
+│   ├── api/                # API utilities
+│   ├── auth/               # Authentication utilities
+│   ├── db/                 # Database utilities
+│   └── validation/         # Validation schemas
+├── modules/                # Business logic modules
+│   ├── compliance/         # Compliance module logic
+│   ├── inventory/          # Hardware inventory logic
+│   ├── change-management/  # Change management logic
+│   ├── tasks/              # Task management logic
+│   ├── integrations/       # External integrations
+│   └── security/           # Security and audit logic
+├── pages/                  # Next.js pages and API routes
+│   ├── api/                # API routes
+│   ├── auth/               # Authentication pages
+│   ├── compliance/         # Compliance pages
+│   ├── inventory/          # Hardware inventory pages
+│   ├── change-management/  # Change management pages
+│   └── tasks/              # Task management pages
+├── prisma/                 # Prisma ORM schema and migrations
+├── public/                 # Static assets
+├── styles/                 # Global styles
+├── types/                  # TypeScript type definitions
+├── .env.example            # Example environment variables
+├── .eslintrc.js            # ESLint configuration
+├── docker-compose.yml      # Docker Compose configuration
+├── Dockerfile              # Docker configuration
+├── jest.config.js          # Jest configuration
+├── next.config.js          # Next.js configuration
+├── package.json            # Project dependencies
+├── postcss.config.js       # PostCSS configuration
+├── tailwind.config.js      # Tailwind CSS configuration
+└── tsconfig.json           # TypeScript configuration
+```
+
+## Database Schema
+
+Verisentinel uses a relational database schema with the following core tables:
+
+```mermaid
+erDiagram
+    User {
+        string id PK
+        string email
+        string name
+        string role
+        boolean twoFactorEnabled
+        string domain
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    ComplianceControl {
+        string id PK
+        string name
+        string description
+        string framework
+        string severity
+        string status
+        string frequency
+        datetime lastChecked
+        datetime dueDate
+        string assignedTo FK
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    Evidence {
+        string id PK
+        string controlId FK
+        string filePath
+        string uploadedBy FK
+        string description
+        datetime createdAt
+    }
+    
+    Site {
+        string id PK
+        string name
+        string type
+        string location
+        string description
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    Device {
+        string id PK
+        string siteId FK
+        string type
+        string name
+        string ipAddress
+        string vlan
+        string operatingSystem
+        string services
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    ChangeRequest {
+        string id PK
+        string type
+        string status
+        string details
+        string requesterId FK
+        string approverId FK
+        string implementerId FK
+        datetime requestedAt
+        datetime approvedAt
+        datetime implementedAt
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    Task {
+        string id PK
+        string title
+        string description
+        string status
+        string assignedTo FK
+        string relatedControlId FK
+        datetime dueDate
+        string sprintId FK
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    Sprint {
+        string id PK
+        string name
+        datetime startDate
+        datetime endDate
+        string status
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    AuditLog {
+        string id PK
+        string action
+        string userId FK
+        string resourceType
+        string resourceId
+        string details
+        datetime timestamp
+    }
+    
+    User ||--o{ ComplianceControl : "assigned to"
+    User ||--o{ Evidence : "uploaded by"
+    User ||--o{ ChangeRequest : "requested by"
+    User ||--o{ ChangeRequest : "approved by"
+    User ||--o{ ChangeRequest : "implemented by"
+    User ||--o{ Task : "assigned to"
+    User ||--o{ AuditLog : "performed by"
+    
+    ComplianceControl ||--o{ Evidence : "has"
+    ComplianceControl ||--o{ Task : "related to"
+    
+    Site ||--o{ Device : "contains"
+    
+    Sprint ||--o{ Task : "contains"
+```
+
+## API Structure
+
+Verisentinel exposes a RESTful API through Next.js API routes:
+
+### Authentication API
+- `POST /api/auth/[...nextauth]` - NextAuth.js authentication endpoints
+
+### Compliance API
+- `GET /api/compliance/controls` - List all compliance controls
+- `GET /api/compliance/controls/:id` - Get a specific control
+- `POST /api/compliance/controls` - Create a new control
+- `PUT /api/compliance/controls/:id` - Update a control
+- `DELETE /api/compliance/controls/:id` - Delete a control
+- `GET /api/compliance/controls/:id/evidence` - Get evidence for a control
+- `POST /api/compliance/controls/:id/evidence` - Add evidence to a control
+- `GET /api/compliance/reports` - Generate compliance reports
+
+### Hardware Inventory API
+- `GET /api/inventory/sites` - List all sites
+- `POST /api/inventory/sites` - Create a new site
+- `GET /api/inventory/sites/:id` - Get a specific site
+- `PUT /api/inventory/sites/:id` - Update a site
+- `DELETE /api/inventory/sites/:id` - Delete a site
+- `GET /api/inventory/devices` - List all devices
+- `POST /api/inventory/devices` - Create a new device
+- `GET /api/inventory/devices/:id` - Get a specific device
+- `PUT /api/inventory/devices/:id` - Update a device
+- `DELETE /api/inventory/devices/:id` - Delete a device
+- `GET /api/inventory/topology` - Get network topology data
+
+### Change Management API
+- `GET /api/change-requests` - List all change requests
+- `POST /api/change-requests` - Create a new change request
+- `GET /api/change-requests/:id` - Get a specific change request
+- `PUT /api/change-requests/:id` - Update a change request
+- `PUT /api/change-requests/:id/approve` - Approve a change request
+- `PUT /api/change-requests/:id/implement` - Mark a change request as implemented
+
+### Task Management API
+- `GET /api/tasks` - List all tasks
+- `POST /api/tasks` - Create a new task
+- `GET /api/tasks/:id` - Get a specific task
+- `PUT /api/tasks/:id` - Update a task
+- `DELETE /api/tasks/:id` - Delete a task
+- `GET /api/sprints` - List all sprints
+- `POST /api/sprints` - Create a new sprint
+- `GET /api/sprints/:id` - Get a specific sprint
+- `PUT /api/sprints/:id` - Update a sprint
+- `DELETE /api/sprints/:id` - Delete a sprint
+
+### Audit API
+- `GET /api/audit-logs` - List audit logs with filtering
+
+## Technical Constraints
+
+### Performance Constraints
+- **Page Load Time**: Target < 2 seconds for initial page load
+- **API Response Time**: Target < 500ms for API responses
+- **Database Query Time**: Target < 100ms for common queries
+
+### Security Constraints
+- **Authentication**: Required for all non-public routes
+- **Authorization**: RBAC for all protected resources
+- **Input Validation**: Required for all user inputs
+- **HTTPS**: Required for all environments
+- **Audit Logging**: Required for all security-relevant actions
+
+### Scalability Constraints
+- **User Load**: Support for up to 1,000 concurrent users
+- **Data Volume**: Support for up to 100,000 compliance controls
+- **Device Inventory**: Support for up to 10,000 devices
+
+### Browser Support
+- **Modern Browsers**: Chrome, Firefox, Safari, Edge (latest 2 versions)
+- **Mobile Support**: iOS Safari, Android Chrome
+
+## Development Workflow
+
+### Git Workflow
+- **Main Branch**: Production-ready code
+- **Development Branch**: Integration branch for features
+- **Feature Branches**: Individual feature development
+- **Pull Requests**: Required for all changes to development branch
+- **Code Reviews**: Required for all pull requests
+
+### CI/CD Pipeline
+- **Linting**: ESLint for code quality
+- **Type Checking**: TypeScript for type safety
+- **Unit Testing**: Jest for business logic
+- **Integration Testing**: React Testing Library for components
+- **Build**: Next.js build process
+- **Deployment**: Docker-based deployment
+
+### Testing Strategy
+- **Unit Tests**: For business logic and utilities
+- **Component Tests**: For UI components
+- **API Tests**: For API endpoints
+- **End-to-End Tests**: For critical user flows
+
+## External Dependencies
+
+### Required Dependencies
+- **Database**: PostgreSQL for data storage
+- **Storage**: File system or S3-compatible storage for evidence files
+
+### Optional Dependencies
+- **Redis**: For caching and background jobs
+- **SMTP Server**: For email notifications
+- **Slack API**: For Slack notifications
+- **Linear API**: For Linear integration
+
+## Deployment Options
+
+### Docker Deployment
+```yaml
+# Example docker-compose.yml for production
+version: '3.8'
+services:
+  app:
+    build: .
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://user:password@db:5432/verisentinel
+      - NEXTAUTH_URL=https://verisentinel.example.com
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+      
+  db:
+    image: postgres:14
+    restart: always
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=verisentinel
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      
+  redis:
+    image: redis:7
+    restart: always
+    volumes:
+      - redis_data:/data
+      
+volumes:
+  postgres_data:
+  redis_data:
+```
+
+### Kubernetes Deployment
+- Helm charts available for Kubernetes deployment
+- Supports horizontal scaling for the application tier
+- Requires external PostgreSQL and Redis services
+
+## Monitoring and Observability
+
+### Health Checks
+- `/api/health` - Application health check endpoint
+- `/api/health/db` - Database connectivity check
+- `/api/health/redis` - Redis connectivity check (if enabled)
+
+### Metrics
+- Prometheus metrics exposed at `/api/metrics`
+- Key metrics include:
+  - Request rate and latency
+  - Error rate
+  - Database query performance
+  - Memory and CPU usage
+
+### Logging
+- Structured JSON logs
+- Log levels: error, warn, info, debug
+- Key log fields:
+  - timestamp
+  - level
+  - message
+  - requestId
+  - userId (if authenticated)
+  - module
+  - action

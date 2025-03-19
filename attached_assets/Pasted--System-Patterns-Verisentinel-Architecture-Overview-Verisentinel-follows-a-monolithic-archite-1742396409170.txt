@@ -1,0 +1,416 @@
+# System Patterns: Verisentinel
+
+## Architecture Overview
+
+Verisentinel follows a monolithic architecture pattern built on Next.js, combining frontend and backend functionality in a single codebase. This approach provides several advantages for this project:
+
+- **Simplified Development**: Single codebase for easier maintenance
+- **Cohesive User Experience**: Tight integration between UI and business logic
+- **Reduced Complexity**: No need for separate API services for initial implementation
+- **Faster Development**: Shared types and models across frontend and backend
+
+The system is designed with modularity in mind, allowing for potential future separation if needed as the project scales.
+
+```mermaid
+flowchart TD
+    Client[Client Browser] <--> NextJS[Next.js Application]
+    
+    subgraph Application
+        NextJS <--> Pages[Pages & Components]
+        NextJS <--> APIRoutes[API Routes]
+        Pages <--> Hooks[React Hooks & State]
+        APIRoutes <--> BusinessLogic[Business Logic]
+        BusinessLogic <--> DataAccess[Data Access Layer]
+    end
+    
+    DataAccess <--> DB[(PostgreSQL)]
+    DataAccess <--> Cache[(Redis - Optional)]
+```
+
+## Module Structure
+
+Verisentinel is organized into six primary modules, each handling distinct functionality while maintaining clear interfaces for inter-module communication:
+
+### 1. Compliance Checklist Module
+- Manages compliance controls across frameworks
+- Handles evidence collection and reporting
+- Implements severity-based prioritization
+
+### 2. Hardware Inventory & Topology Module
+- Provides wizard for registering infrastructure components
+- Maintains inventory of sites, devices, and network components
+- Generates visual network topology with D3.js
+
+### 3. Change Management Module
+- Implements workflow for firewall change requests
+- Manages approval processes with role-based permissions
+- Maintains audit trail of all changes
+
+### 4. Task & Sprint Management Module
+- Provides lightweight Kanban board for compliance tasks
+- Manages sprints, deadlines, and assignments
+- Implements notification system for task updates
+
+### 5. Integration Module
+- Defines interfaces for external system integration
+- Provides webhooks and API endpoints for extensibility
+- Implements optional integrations (Slack, Linear)
+
+### 6. Security & Audit Module
+- Manages authentication and authorization
+- Implements RBAC, 2FA, and domain restrictions
+- Maintains comprehensive audit logs
+
+## Component Relationships
+
+```mermaid
+flowchart TD
+    CM[Compliance Module] <--> HI[Hardware Inventory]
+    CM <--> TM[Task Management]
+    HI <--> CM[Change Management]
+    CM --> AM[Audit Module]
+    HI --> AM
+    TM --> AM
+    CM --> AM
+    IM[Integration Module] <--> CM
+    IM <--> HI
+    IM <--> TM
+    IM <--> CM
+    SM[Security Module] --- CM
+    SM --- HI
+    SM --- TM
+    SM --- CM
+    SM --- IM
+```
+
+## Data Flow Patterns
+
+### Compliance Control Flow
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as UI Components
+    participant API as API Routes
+    participant BL as Business Logic
+    participant DB as Database
+    
+    User->>UI: Access compliance dashboard
+    UI->>API: Request compliance controls
+    API->>BL: Process request
+    BL->>DB: Query controls with status
+    DB-->>BL: Return control data
+    BL-->>API: Format response
+    API-->>UI: Return formatted data
+    UI-->>User: Display compliance dashboard
+    
+    User->>UI: Update control status
+    UI->>API: Send update request
+    API->>BL: Validate and process
+    BL->>DB: Update control status
+    BL->>DB: Create audit log entry
+    DB-->>BL: Confirm update
+    BL-->>API: Return success
+    API-->>UI: Confirm update
+    UI-->>User: Show updated status
+```
+
+### Change Request Flow
+```mermaid
+sequenceDiagram
+    actor Requester
+    actor Approver
+    actor Implementer
+    participant UI as UI Components
+    participant API as API Routes
+    participant BL as Business Logic
+    participant DB as Database
+    participant Notify as Notification Service
+    
+    Requester->>UI: Submit change request
+    UI->>API: Send request data
+    API->>BL: Validate request
+    BL->>DB: Store change request
+    BL->>Notify: Notify approvers
+    Notify-->>Approver: Send notification
+    
+    Approver->>UI: Review request
+    UI->>API: Get request details
+    API->>BL: Process request
+    BL->>DB: Query request data
+    DB-->>BL: Return request details
+    BL-->>API: Format response
+    API-->>UI: Display request details
+    
+    Approver->>UI: Approve request
+    UI->>API: Send approval
+    API->>BL: Process approval
+    BL->>DB: Update request status
+    BL->>Notify: Notify implementers
+    Notify-->>Implementer: Send notification
+    
+    Implementer->>UI: Mark as implemented
+    UI->>API: Send implementation status
+    API->>BL: Process update
+    BL->>DB: Update request status
+    BL->>DB: Create audit log entry
+    DB-->>BL: Confirm update
+    BL-->>API: Return success
+    API-->>UI: Confirm implementation
+```
+
+## Key Design Patterns
+
+### Repository Pattern
+Used for data access abstraction, separating business logic from data storage details.
+
+```typescript
+// Example Repository Interface
+interface ComplianceControlRepository {
+  findAll(): Promise<ComplianceControl[]>;
+  findById(id: string): Promise<ComplianceControl | null>;
+  findBySeverity(severity: Severity): Promise<ComplianceControl[]>;
+  create(control: ComplianceControlDTO): Promise<ComplianceControl>;
+  update(id: string, control: Partial<ComplianceControlDTO>): Promise<ComplianceControl>;
+  delete(id: string): Promise<boolean>;
+}
+```
+
+### Service Pattern
+Encapsulates business logic and orchestrates operations across repositories.
+
+```typescript
+// Example Service
+class ComplianceService {
+  constructor(
+    private controlRepo: ComplianceControlRepository,
+    private evidenceRepo: EvidenceRepository,
+    private auditLogService: AuditLogService
+  ) {}
+  
+  async updateControlStatus(
+    id: string, 
+    status: ControlStatus, 
+    userId: string
+  ): Promise<ComplianceControl> {
+    const control = await this.controlRepo.findById(id);
+    if (!control) throw new Error('Control not found');
+    
+    const updated = await this.controlRepo.update(id, { status });
+    await this.auditLogService.logAction({
+      action: 'update_control_status',
+      userId,
+      resourceId: id,
+      details: { oldStatus: control.status, newStatus: status }
+    });
+    
+    return updated;
+  }
+}
+```
+
+### Factory Pattern
+Used for creating complex objects, particularly in the wizard flows.
+
+```typescript
+// Example Factory
+class DeviceFactory {
+  static createNetworkDevice(data: NetworkDeviceDTO): NetworkDevice {
+    return {
+      id: generateId(),
+      type: 'network',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...data
+    };
+  }
+  
+  static createServer(data: ServerDTO): Server {
+    return {
+      id: generateId(),
+      type: 'server',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...data
+    };
+  }
+}
+```
+
+### Observer Pattern
+Implemented for notifications and event handling across modules.
+
+```typescript
+// Example Observer Implementation
+class EventBus {
+  private listeners: Record<string, Function[]> = {};
+  
+  subscribe(event: string, callback: Function) {
+    if (!this.listeners[event]) {
+      this.listeners[event] = [];
+    }
+    this.listeners[event].push(callback);
+    
+    return () => this.unsubscribe(event, callback);
+  }
+  
+  unsubscribe(event: string, callback: Function) {
+    if (!this.listeners[event]) return;
+    this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
+  }
+  
+  publish(event: string, data: any) {
+    if (!this.listeners[event]) return;
+    this.listeners[event].forEach(callback => callback(data));
+  }
+}
+```
+
+## State Management
+
+Verisentinel uses a combination of server state and client state management:
+
+1. **Server State**: 
+   - API routes handle data persistence and business logic
+   - Next.js API handlers manage request processing
+
+2. **Client State**:
+   - React Context for global UI state
+   - React Query for server state caching and synchronization
+   - Local component state for UI-specific concerns
+
+```typescript
+// Example React Context for Authentication
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    // Load user from session
+    async function loadUser() {
+      try {
+        const session = await getSession();
+        setUser(session?.user || null);
+      } catch (error) {
+        console.error('Failed to load user session', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadUser();
+  }, []);
+  
+  const value = {
+    user,
+    loading,
+    login: async (credentials: Credentials) => {
+      // Implementation
+    },
+    logout: async () => {
+      // Implementation
+    }
+  };
+  
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+```
+
+## Error Handling Strategy
+
+Verisentinel implements a consistent error handling approach:
+
+1. **API Error Responses**: Standardized error format with status codes, messages, and details
+2. **Client Error Handling**: React Error Boundaries for component-level errors
+3. **Global Error Handling**: Central error logging and notification system
+4. **Validation**: Zod schema validation for all API inputs
+
+```typescript
+// Example API Error Response Structure
+interface ErrorResponse {
+  status: number;
+  message: string;
+  code: string;
+  details?: Record<string, any>;
+  timestamp: string;
+}
+
+// Example API Error Handler
+function handleApiError(error: unknown, req: NextApiRequest, res: NextApiResponse) {
+  console.error('API Error:', error);
+  
+  if (error instanceof ValidationError) {
+    return res.status(400).json({
+      status: 400,
+      message: 'Validation failed',
+      code: 'VALIDATION_ERROR',
+      details: error.errors,
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  if (error instanceof AuthorizationError) {
+    return res.status(403).json({
+      status: 403,
+      message: 'Not authorized',
+      code: 'AUTHORIZATION_ERROR',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Default error response
+  return res.status(500).json({
+    status: 500,
+    message: 'Internal server error',
+    code: 'INTERNAL_ERROR',
+    timestamp: new Date().toISOString()
+  });
+}
+```
+
+## Security Patterns
+
+Verisentinel implements several security patterns:
+
+1. **Authentication**: NextAuth.js for user authentication with multiple providers
+2. **Authorization**: RBAC (Role-Based Access Control) for permission management
+3. **Input Validation**: Zod schema validation for all user inputs
+4. **Output Encoding**: Proper HTML encoding to prevent XSS attacks
+5. **Audit Logging**: Comprehensive logging of all security-relevant actions
+6. **CSRF Protection**: Token-based protection for all state-changing operations
+7. **Rate Limiting**: API rate limiting to prevent abuse
+
+```typescript
+// Example RBAC Middleware
+export function withAuthorization(requiredRole: Role) {
+  return async (req: NextApiRequest, res: NextApiResponse, next: NextApiHandler) => {
+    const session = await getSession({ req });
+    
+    if (!session || !session.user) {
+      return res.status(401).json({
+        status: 401,
+        message: 'Not authenticated',
+        code: 'AUTHENTICATION_ERROR',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    const userRole = session.user.role;
+    
+    if (!hasPermission(userRole, requiredRole)) {
+      return res.status(403).json({
+        status: 403,
+        message: 'Not authorized',
+        code: 'AUTHORIZATION_ERROR',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    return next(req, res);
+  };
+}
