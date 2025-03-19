@@ -278,7 +278,9 @@ export default function NetworkTopology() {
     // Process each site with its devices
     topology.forEach((site, siteIndex) => {
       const baseX = siteIndex === 0 ? 200 : 600; // Position sites horizontally
-      const baseY = 200;
+      const baseY = 150;
+      const siteWidth = 300;
+      const siteHeight = 300;
       
       // Add site group node
       newNodes.push({
@@ -288,35 +290,40 @@ export default function NetworkTopology() {
           label: site.name,
           childNodes: site.devices?.length || 0
         },
-        position: { x: baseX - 150, y: baseY - 50 },
+        position: { x: baseX - 150, y: baseY },
         style: { 
-          width: 300,
-          height: 300,
+          width: siteWidth,
+          height: siteHeight,
           zIndex: -1 // Place behind other nodes
         }
       });
 
-      // Process top-level devices (like firewalls)
-      const firewalls = devices.filter(d => d.type === 'firewall' && d.siteId === site.id);
-      firewalls.forEach((firewall, idx) => {
+      // Find top-level devices for this site (parentDeviceId is null)
+      const topLevelDevices = devices.filter(d => d.siteId === site.id && d.parentDeviceId === null);
+      
+      // Process top-level devices first (like firewalls)
+      topLevelDevices.forEach((topDevice, idx) => {
+        const nodeType = topDevice.type;
+        
         newNodes.push({
-          id: `device-${firewall.id}`,
-          type: 'firewall',
+          id: `device-${topDevice.id}`,
+          type: nodeType as any,
           data: { 
-            label: firewall.name,
-            status: firewall.status,
-            onClick: () => handleDeviceClick(firewall)
+            label: topDevice.name,
+            status: topDevice.status,
+            ipAddress: topDevice.ipAddress,
+            onClick: () => handleDeviceClick(topDevice)
           },
-          position: { x: baseX, y: baseY - 20 },
+          position: { x: siteWidth/2 - 60, y: 40 },
           parentNode: `site-${site.id}`,
           extent: 'parent'
         });
         
-        // Connect firewall to internet
+        // Connect to the Internet
         newEdges.push({
-          id: `edge-internet-${firewall.id}`,
+          id: `edge-internet-${topDevice.id}`,
           source: 'internet',
-          target: `device-${firewall.id}`,
+          target: `device-${topDevice.id}`,
           type: 'smoothstep',
           animated: true,
           style: { stroke: '#9CA3AF' },
@@ -325,106 +332,89 @@ export default function NetworkTopology() {
             color: '#9CA3AF',
           },
         });
-      });
-
-      // Process routers
-      const routers = devices.filter(d => d.type === 'router' && d.siteId === site.id);
-      routers.forEach((router, idx) => {
-        newNodes.push({
-          id: `device-${router.id}`,
-          type: 'router',
-          data: { 
-            label: router.name,
-            status: router.status,
-            onClick: () => handleDeviceClick(router)
-          },
-          position: { x: baseX, y: baseY + 80 },
-          parentNode: `site-${site.id}`,
-          extent: 'parent'
-        });
         
-        // Connect router to its parent (usually firewall)
-        if (router.parentDeviceId) {
-          newEdges.push({
-            id: `edge-${router.parentDeviceId}-${router.id}`,
-            source: `device-${router.parentDeviceId}`,
-            target: `device-${router.id}`,
-            type: 'smoothstep',
-            style: { stroke: '#9CA3AF' },
-            markerEnd: {
-              type: MarkerType.Arrow,
-              color: '#9CA3AF',
-            },
-          });
-        }
-      });
-
-      // Process switches
-      const switches = devices.filter(d => d.type === 'switch' && d.siteId === site.id);
-      switches.forEach((switchDevice, idx) => {
-        newNodes.push({
-          id: `device-${switchDevice.id}`,
-          type: 'switch',
-          data: { 
-            label: switchDevice.name,
-            status: switchDevice.status,
-            onClick: () => handleDeviceClick(switchDevice)
-          },
-          position: { x: baseX, y: baseY + 160 },
-          parentNode: `site-${site.id}`,
-          extent: 'parent'
-        });
+        // Get child devices
+        const childDevices = devices.filter(d => d.parentDeviceId === topDevice.id);
         
-        // Connect switch to its parent (usually router)
-        if (switchDevice.parentDeviceId) {
-          newEdges.push({
-            id: `edge-${switchDevice.parentDeviceId}-${switchDevice.id}`,
-            source: `device-${switchDevice.parentDeviceId}`,
-            target: `device-${switchDevice.id}`,
-            type: 'smoothstep',
-            style: { stroke: '#9CA3AF' },
-            markerEnd: {
-              type: MarkerType.Arrow,
-              color: '#9CA3AF',
-            },
-          });
-        }
-      });
-
-      // Process servers
-      const servers = devices.filter(d => d.type === 'server' && d.siteId === site.id);
-      servers.forEach((server, idx) => {
-        // Position servers in a grid
-        const serversPerRow = 3;
-        const row = Math.floor(idx / serversPerRow);
-        const col = idx % serversPerRow;
-        
-        newNodes.push({
-          id: `device-${server.id}`,
-          type: 'server',
-          data: { 
-            label: server.name,
-            status: server.status,
-            ipAddress: server.ipAddress,
-            onClick: () => handleDeviceClick(server)
-          },
-          position: { x: baseX - 120 + (col * 130), y: baseY + 240 + (row * 120) },
-          parentNode: `site-${site.id}`,
-          extent: 'parent'
-        });
-        
-        // Connect server to its parent (usually switch)
-        if (server.parentDeviceId) {
-          newEdges.push({
-            id: `edge-${server.parentDeviceId}-${server.id}`,
-            source: `device-${server.parentDeviceId}`,
-            target: `device-${server.id}`,
-            type: 'smoothstep',
-            style: { stroke: '#9CA3AF' },
-            markerEnd: {
-              type: MarkerType.Arrow,
-              color: '#9CA3AF',
-            },
+        // If there are multiple children, arrange them in a row
+        if (childDevices.length > 0) {
+          const childWidth = siteWidth / (childDevices.length + 1);
+          
+          childDevices.forEach((childDevice, childIdx) => {
+            // Determine position within site
+            const childX = (childIdx + 1) * childWidth - 60;
+            const childY = 120;
+            const nodeType = childDevice.type;
+            
+            // Add child device node
+            newNodes.push({
+              id: `device-${childDevice.id}`,
+              type: nodeType as any,
+              data: {
+                label: childDevice.name,
+                status: childDevice.status,
+                ipAddress: childDevice.ipAddress,
+                onClick: () => handleDeviceClick(childDevice)
+              },
+              position: { x: childX, y: childY },
+              parentNode: `site-${site.id}`,
+              extent: 'parent'
+            });
+            
+            // Connect to parent
+            newEdges.push({
+              id: `edge-${childDevice.parentDeviceId}-${childDevice.id}`,
+              source: `device-${childDevice.parentDeviceId}`,
+              target: `device-${childDevice.id}`,
+              type: 'smoothstep',
+              style: { stroke: '#9CA3AF' },
+              markerEnd: {
+                type: MarkerType.Arrow,
+                color: '#9CA3AF',
+              },
+            });
+            
+            // Find third-level devices (grandchildren)
+            const grandchildDevices = devices.filter(d => d.parentDeviceId === childDevice.id);
+            
+            // Position grandchildren in a row beneath their parent
+            if (grandchildDevices.length > 0) {
+              const gcWidth = siteWidth / (grandchildDevices.length + 1);
+              
+              grandchildDevices.forEach((gcDevice, gcIdx) => {
+                const gcX = (gcIdx + 0.5) * gcWidth - 25;
+                const gcY = 200;
+                const nodeType = gcDevice.type;
+                
+                // Add grandchild node
+                newNodes.push({
+                  id: `device-${gcDevice.id}`,
+                  type: nodeType as any,
+                  data: {
+                    label: gcDevice.name,
+                    status: gcDevice.status,
+                    ipAddress: gcDevice.ipAddress,
+                    onClick: () => handleDeviceClick(gcDevice)
+                  },
+                  position: { x: gcX, y: gcY },
+                  parentNode: `site-${site.id}`,
+                  extent: 'parent'
+                });
+                
+                // Connect to parent (second level device)
+                newEdges.push({
+                  id: `edge-${gcDevice.parentDeviceId}-${gcDevice.id}`,
+                  source: `device-${gcDevice.parentDeviceId}`,
+                  target: `device-${gcDevice.id}`,
+                  type: 'smoothstep',
+                  style: { stroke: '#9CA3AF' },
+                  markerEnd: {
+                    type: MarkerType.Arrow,
+                    color: '#9CA3AF',
+                  },
+                });
+              });
+            }
           });
         }
       });
