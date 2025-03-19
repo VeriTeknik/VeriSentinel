@@ -1,4 +1,7 @@
-import { users, complianceFrameworks, complianceControls, evidence, sites, devices, changeRequests, tasks, sprints, auditLogs } from "@shared/schema";
+import { 
+  users, complianceFrameworks, complianceControls, evidence, 
+  sites, devices, changeRequests, tasks, sprints, auditLogs 
+} from "@shared/schema";
 import type { 
   User, InsertUser, 
   ComplianceFramework, InsertComplianceFramework,
@@ -13,11 +16,17 @@ import type {
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { eq, desc } from "drizzle-orm";
+import { neon } from "@neondatabase/serverless";
+import connectPg from "connect-pg-simple";
+import pg from "pg";
 
 const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 
   // User management
   getUser(id: number): Promise<User | undefined>;
@@ -74,7 +83,7 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
   private users: Map<number, User>;
   private complianceFrameworks: Map<number, ComplianceFramework>;
   private complianceControls: Map<number, ComplianceControl>;
@@ -357,4 +366,212 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// PostgreSQL database storage implementation
+import { pool, db } from './db';
+
+export class PostgresStorage implements IStorage {
+  sessionStore: session.Store;
+
+  constructor() {
+    // Create a session store using PostgreSQL
+    this.sessionStore = new PostgresSessionStore({
+      pool: pool,
+      createTableIfMissing: true,
+    });
+  }
+
+  // User management
+  async getUser(id: number): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.id, id));
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.username, username));
+    return result[0];
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const result = await this.db.insert(users).values(user).returning();
+    return result[0];
+  }
+
+  async listUsers(): Promise<User[]> {
+    return await this.db.select().from(users);
+  }
+
+  // Compliance framework management
+  async createComplianceFramework(framework: InsertComplianceFramework): Promise<ComplianceFramework> {
+    const result = await this.db.insert(complianceFrameworks).values(framework).returning();
+    return result[0];
+  }
+
+  async getComplianceFramework(id: number): Promise<ComplianceFramework | undefined> {
+    const result = await this.db.select().from(complianceFrameworks).where(eq(complianceFrameworks.id, id));
+    return result[0];
+  }
+
+  async listComplianceFrameworks(): Promise<ComplianceFramework[]> {
+    return await this.db.select().from(complianceFrameworks);
+  }
+
+  // Compliance control management
+  async createComplianceControl(control: InsertComplianceControl): Promise<ComplianceControl> {
+    const result = await this.db.insert(complianceControls).values(control).returning();
+    return result[0];
+  }
+
+  async getComplianceControl(id: number): Promise<ComplianceControl | undefined> {
+    const result = await this.db.select().from(complianceControls).where(eq(complianceControls.id, id));
+    return result[0];
+  }
+
+  async updateComplianceControl(id: number, control: Partial<InsertComplianceControl>): Promise<ComplianceControl | undefined> {
+    const result = await this.db.update(complianceControls)
+      .set(control)
+      .where(eq(complianceControls.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async listComplianceControls(frameworkId?: number): Promise<ComplianceControl[]> {
+    if (frameworkId !== undefined) {
+      return await this.db.select().from(complianceControls).where(eq(complianceControls.frameworkId, frameworkId));
+    }
+    return await this.db.select().from(complianceControls);
+  }
+
+  // Evidence management
+  async createEvidence(evidenceItem: InsertEvidence): Promise<Evidence> {
+    const itemWithDate = { ...evidenceItem, uploadedAt: new Date() };
+    const result = await this.db.insert(evidence).values(itemWithDate).returning();
+    return result[0];
+  }
+
+  async getEvidence(id: number): Promise<Evidence | undefined> {
+    const result = await this.db.select().from(evidence).where(eq(evidence.id, id));
+    return result[0];
+  }
+
+  async listEvidenceByControl(controlId: number): Promise<Evidence[]> {
+    return await this.db.select().from(evidence).where(eq(evidence.controlId, controlId));
+  }
+
+  // Site management
+  async createSite(site: InsertSite): Promise<Site> {
+    const result = await this.db.insert(sites).values(site).returning();
+    return result[0];
+  }
+
+  async getSite(id: number): Promise<Site | undefined> {
+    const result = await this.db.select().from(sites).where(eq(sites.id, id));
+    return result[0];
+  }
+
+  async listSites(): Promise<Site[]> {
+    return await this.db.select().from(sites);
+  }
+
+  // Device management
+  async createDevice(device: InsertDevice): Promise<Device> {
+    const result = await this.db.insert(devices).values(device).returning();
+    return result[0];
+  }
+
+  async getDevice(id: number): Promise<Device | undefined> {
+    const result = await this.db.select().from(devices).where(eq(devices.id, id));
+    return result[0];
+  }
+
+  async listDevices(siteId?: number): Promise<Device[]> {
+    if (siteId !== undefined) {
+      return await this.db.select().from(devices).where(eq(devices.siteId, siteId));
+    }
+    return await this.db.select().from(devices);
+  }
+
+  // Change request management
+  async createChangeRequest(changeRequest: InsertChangeRequest): Promise<ChangeRequest> {
+    const requestWithDefaults = {
+      ...changeRequest,
+      status: 'pending',
+      requestedAt: new Date(),
+    };
+    const result = await this.db.insert(changeRequests).values(requestWithDefaults).returning();
+    return result[0];
+  }
+
+  async getChangeRequest(id: number): Promise<ChangeRequest | undefined> {
+    const result = await this.db.select().from(changeRequests).where(eq(changeRequests.id, id));
+    return result[0];
+  }
+
+  async updateChangeRequest(id: number, changeRequest: Partial<ChangeRequest>): Promise<ChangeRequest | undefined> {
+    const result = await this.db.update(changeRequests)
+      .set(changeRequest)
+      .where(eq(changeRequests.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async listChangeRequests(): Promise<ChangeRequest[]> {
+    return await this.db.select().from(changeRequests);
+  }
+
+  // Task management
+  async createTask(task: InsertTask): Promise<Task> {
+    const result = await this.db.insert(tasks).values(task).returning();
+    return result[0];
+  }
+
+  async getTask(id: number): Promise<Task | undefined> {
+    const result = await this.db.select().from(tasks).where(eq(tasks.id, id));
+    return result[0];
+  }
+
+  async updateTask(id: number, task: Partial<InsertTask>): Promise<Task | undefined> {
+    const result = await this.db.update(tasks)
+      .set(task)
+      .where(eq(tasks.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async listTasks(status?: string): Promise<Task[]> {
+    if (status !== undefined) {
+      return await this.db.select().from(tasks).where(eq(tasks.status, status));
+    }
+    return await this.db.select().from(tasks);
+  }
+
+  // Sprint management
+  async createSprint(sprint: InsertSprint): Promise<Sprint> {
+    const result = await this.db.insert(sprints).values(sprint).returning();
+    return result[0];
+  }
+
+  async getSprint(id: number): Promise<Sprint | undefined> {
+    const result = await this.db.select().from(sprints).where(eq(sprints.id, id));
+    return result[0];
+  }
+
+  async listSprints(): Promise<Sprint[]> {
+    return await this.db.select().from(sprints);
+  }
+
+  // Audit log management
+  async createAuditLog(auditLog: InsertAuditLog): Promise<AuditLog> {
+    const logWithTimestamp = { ...auditLog, timestamp: new Date() };
+    const result = await this.db.insert(auditLogs).values(logWithTimestamp).returning();
+    return result[0];
+  }
+
+  async listAuditLogs(): Promise<AuditLog[]> {
+    return await this.db.select().from(auditLogs).orderBy(desc(auditLogs.timestamp));
+  }
+}
+
+// Use PostgreSQL storage if DATABASE_URL is available, otherwise fallback to memory storage
+export const storage = process.env.DATABASE_URL 
+  ? new PostgresStorage() 
+  : new MemStorage();
