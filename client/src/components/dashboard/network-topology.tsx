@@ -17,6 +17,8 @@ interface DeviceNode {
   type: string;
   status: string;
   ipAddress?: string;
+  parentDeviceId?: number | null;
+  siteId: number;
 }
 
 export function NetworkTopology() {
@@ -32,7 +34,21 @@ export function NetworkTopology() {
   
   const handleNodeClick = (device: DeviceNode) => {
     console.log(`Device clicked:`, device);
-    // In full implementation, show device details in a modal/drawer
+    
+    // Find parent and child relationships
+    const parentDevice = device.parentDeviceId ? 
+      devices?.find(d => d.id === device.parentDeviceId) : undefined;
+    
+    const childDevices = devices?.filter(d => 
+      d.parentDeviceId === device.id
+    ) || [];
+    
+    // Log hierarchical relationships for this device
+    console.log('Hierarchical information:');
+    console.log('Parent device:', parentDevice || 'None (top-level device)');
+    console.log('Child devices:', childDevices.length > 0 ? childDevices : 'None (leaf device)');
+    
+    // In full implementation, show device details in modal/drawer with relationship information
   };
 
   if (isLoading || isLoadingDevices) {
@@ -203,33 +219,63 @@ export function NetworkTopology() {
               );
             })}
             
-            {/* Lines from Switches to Servers - Dynamic based on device positions */}
-            {/* Each server gets a connection line to nearest switch for visualization */}
+            {/* Lines from Parent Devices to Child Devices - Using actual hierarchical relationships */}
             {serverDevices.slice(0, 5).map((device, index) => {
+              // Skip devices without parent
+              if (!device.parentDeviceId) return null;
+              
               let serverX = 220 + (index * 85);
               if (index > 2) {
                 serverX = 490 + ((index - 3) * 60);
               }
               const serverY = 320;
               
-              // Determine which switch to connect to based on position
-              let switchX = 280; // Default to left switch
+              // Find parent device - might be a switch or other network device
+              const parentDevice = devices?.find(d => d.id === device.parentDeviceId);
+              if (!parentDevice) return null;
               
-              if (index === 2) {
-                switchX = 400; // Middle server connects to middle switch
-              } else if (index >= 3) {
-                switchX = 520; // Right servers connect to right switch
+              // Determine parent device position based on its type and our layout
+              let parentX = 400; // Default center position
+              let parentY = 170; // Default router position
+              
+              // Determine parent position based on type
+              if (parentDevice.type === 'switch') {
+                if (parentDevice.siteId === 1) {
+                  // Primary site switches
+                  parentX = 250;
+                  parentY = 240;
+                } else {
+                  // DR site switches
+                  parentX = 490;
+                  parentY = 240;
+                }
+              } else if (parentDevice.type === 'firewall') {
+                parentX = 400;
+                parentY = 120;
+              }
+              
+              // Special case for dashboard view, set positions based on parent type
+              // to create a logical hierarchy visualization regardless of actual parent id
+              if (parentDevice.type === 'switch') {
+                // Position based on which side the server is on
+                if (index < 3) {
+                  parentX = 280; // Left switch
+                } else {
+                  parentX = 520; // Right switch
+                }
+                parentY = 280;
               }
               
               return (
                 <line 
                   key={`line-${device.id}`} 
-                  x1={switchX} 
-                  y1={280} 
-                  x2={serverX + 25} 
-                  y2={320} 
+                  x1={parentX + 30} // Center of parent device
+                  y1={parentY + 40} // Bottom of parent device
+                  x2={serverX + 25} // Center of server
+                  y2={serverY} // Top of server
                   stroke="#9CA3AF" 
-                  strokeWidth={2} 
+                  strokeWidth={2}
+                  strokeDasharray={device.status === 'critical' ? "5,5" : ""} // Dashed line for critical devices
                 />
               );
             })}

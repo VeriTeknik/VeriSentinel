@@ -71,10 +71,15 @@ export default function NetworkTopology() {
 
   const handleDeviceClick = (device: Device) => {
     const site = sites?.find(s => s.id === device.siteId);
+    const parentDevice = device.parentDeviceId ? 
+      devices?.find(d => d.id === device.parentDeviceId) : undefined;
+    const childDevices = devices?.filter(d => d.parentDeviceId === device.id) || [];
     
     setSelectedDevice({
       ...device,
-      siteName: site?.name
+      siteName: site?.name,
+      parentDevice,
+      childDevices
     });
     
     setDetailsOpen(true);
@@ -675,6 +680,65 @@ export default function NetworkTopology() {
                   </div>
                 </div>
               )}
+
+              {/* Device Relationships - Parent Device and Child Devices */}
+              <div className="pt-4 border-t border-gray-200">
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Network Relationships</h3>
+                <div className="text-sm text-gray-700 space-y-3">
+                  {/* Parent device info */}
+                  <div>
+                    <h4 className="text-sm font-medium">Parent Device</h4>
+                    {selectedDevice.parentDevice ? (
+                      <div className="p-2 bg-gray-50 rounded flex justify-between items-center mt-1">
+                        <div>
+                          <span className="font-medium">{selectedDevice.parentDevice.name}</span>
+                          <span className="text-gray-500 ml-2 text-xs capitalize">({selectedDevice.parentDevice.type})</span>
+                        </div>
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          selectedDevice.parentDevice.status === 'active' ? 'bg-green-100 text-green-800' : 
+                          selectedDevice.parentDevice.status === 'warning' ? 'bg-amber-100 text-amber-800' : 
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {selectedDevice.parentDevice.status}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="p-2 bg-gray-50 rounded mt-1">
+                        <span className="text-gray-500">No parent device (top-level device)</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Child devices list */}
+                  <div>
+                    <h4 className="text-sm font-medium">Child Devices</h4>
+                    {selectedDevice.childDevices && selectedDevice.childDevices.length > 0 ? (
+                      <div className="space-y-1 mt-1">
+                        {selectedDevice.childDevices.map(child => (
+                          <div key={child.id} className="p-2 bg-gray-50 rounded flex justify-between items-center">
+                            <div>
+                              <span className="font-medium">{child.name}</span>
+                              <span className="text-gray-500 ml-2 text-xs capitalize">({child.type})</span>
+                            </div>
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              child.status === 'active' ? 'bg-green-100 text-green-800' : 
+                              child.status === 'warning' ? 'bg-amber-100 text-amber-800' : 
+                              child.status === 'critical' ? 'bg-red-100 text-red-800' : 
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {child.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-2 bg-gray-50 rounded mt-1">
+                        <span className="text-gray-500">No child devices (leaf device)</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
               {/* Related compliance controls section */}
               <div className="pt-4 border-t border-gray-200">
