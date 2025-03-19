@@ -21,8 +21,10 @@ interface DeviceDetails {
   id: number;
   name: string;
   type: string;
-  ipAddress?: string;
-  operatingSystem?: string;
+  ipAddress: string | null;
+  vlan: string | null;
+  operatingSystem: string | null;
+  services: string | null;
   status: string;
   siteId: number;
   siteName?: string;
@@ -54,6 +56,14 @@ export default function NetworkTopology() {
     const typeMatch = selectedDeviceType === "all" || device.type === selectedDeviceType;
     return siteMatch && typeMatch;
   });
+  
+  // Separate devices by type for visualization
+  const networkDevices = filteredDevices?.filter(d => 
+    d.type === 'firewall' || d.type === 'switch' || d.type === 'router'
+  ) || [];
+  
+  // Get server devices
+  const serverDevices = filteredDevices?.filter(d => d.type === 'server') || [];
 
   const handleDeviceClick = (device: Device) => {
     const site = sites?.find(s => s.id === device.siteId);
@@ -184,122 +194,173 @@ export default function NetworkTopology() {
               <ellipse cx="400" cy="50" rx="120" ry="40" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="2" className="device-node" />
               <text x="400" y="55" textAnchor="middle" className="text-sm font-medium">Internet</text>
               
-              {/* Firewall */}
-              <rect x="370" y="120" width="60" height="40" rx="5" fill="#FEF3C7" stroke="#FF832B" strokeWidth="2" className="device-node" />
-              <text x="400" y="144" textAnchor="middle" className="text-xs font-medium">Firewall</text>
+              {/* Dynamic Network Infrastructure */}
+              {networkDevices.slice(0, 5).map((device, index) => {
+                // Calculate positions based on index and device type
+                let x = 370;
+                let y = 120; // Default position for first device (usually firewall)
+                
+                if (device.type === 'router') {
+                  y = 190; // Router position
+                } else if (device.type === 'switch') {
+                  // Position switches based on their site and available positions
+                  const site = sites?.find(s => s.id === device.siteId);
+                  if (site && site.id === 1) {
+                    // Primary site switch
+                    x = 200;
+                    y = 320;
+                  } else {
+                    // DR site or other switches
+                    x = 570; 
+                    y = 320;
+                  }
+                }
+                
+                // Determine color based on device type
+                let fill = "#FEF3C7"; // Default - orange for firewall
+                let stroke = "#FF832B";
+                
+                if (device.type === "router") {
+                  fill = "#D1FAE5"; // Green for router
+                  stroke = "#42BE65";
+                } else if (device.type === "switch") {
+                  fill = "#E0E7FF"; // Blue for switch
+                  stroke = "#6366F1";
+                }
+                
+                return (
+                  <g key={`network-${device.id}`}>
+                    <rect 
+                      x={x} 
+                      y={y} 
+                      width={60} 
+                      height={40} 
+                      rx={5} 
+                      fill={fill} 
+                      stroke={stroke} 
+                      strokeWidth={2} 
+                      className="device-node" 
+                      onClick={() => handleDeviceClick(device)} 
+                    />
+                    <text 
+                      x={x + 30} 
+                      y={y + 24} 
+                      textAnchor="middle" 
+                      className="text-xs font-medium"
+                    >
+                      {device.name.length > 10 ? device.name.substring(0, 8) + '...' : device.name}
+                    </text>
+                  </g>
+                );
+              })}
               
-              {/* Lines from Internet to Firewall */}
-              <line x1="400" y1="90" x2="400" y2="120" stroke="#9CA3AF" strokeWidth="2" />
+              {/* Network Connection Lines */}
+              <line x1="400" y1="90" x2="400" y2="120" stroke="#9CA3AF" strokeWidth="2" /> {/* Internet to Firewall */}
+              <line x1="400" y1="160" x2="400" y2="190" stroke="#9CA3AF" strokeWidth="2" /> {/* Firewall to Router */}
+              <line x1="370" y1="210" x2="230" y2="320" stroke="#9CA3AF" strokeWidth="2" /> {/* Router to Primary Switch */}
+              <line x1="430" y1="210" x2="570" y2="320" stroke="#9CA3AF" strokeWidth="2" /> {/* Router to DR Switch */}
               
-              {/* Router */}
-              <rect x="370" y="190" width="60" height="40" rx="5" fill="#D1FAE5" stroke="#42BE65" strokeWidth="2" className="device-node" />
-              <text x="400" y="214" textAnchor="middle" className="text-xs font-medium">Router</text>
-              
-              {/* Line from Firewall to Router */}
-              <line x1="400" y1="160" x2="400" y2="190" stroke="#9CA3AF" strokeWidth="2" />
-              
-              {/* Primary Site */}
-              <g>
-                <rect x="150" y="260" width="300" height="300" rx="5" fill="#F3F4F6" stroke="#D1D5DB" strokeWidth="2" strokeDasharray="5,5" />
-                <text x="300" y="280" textAnchor="middle" fontWeight="bold" className="text-sm">Primary Site</text>
+              {/* Dynamic Site Areas */}
+              {topology?.map((site, siteIndex) => {
+                // Calculate site positions - primary site on left, DR site on right
+                const x = siteIndex === 0 ? 150 : 500;
+                const width = siteIndex === 0 ? 300 : 200;
+                const y = 260;
+                const height = 300;
                 
-                {/* Switch 1 */}
-                <rect x="200" y="320" width="60" height="40" rx="5" fill="#E0E7FF" stroke="#6366F1" strokeWidth="2" className="device-node" onClick={() => handleDeviceClick({
-                  id: 3,
-                  siteId: 1,
-                  name: "Switch 1",
-                  type: "network",
-                  ipAddress: "192.168.1.2",
-                  status: "active"
-                })} />
-                <text x="230" y="344" textAnchor="middle" className="text-xs font-medium">Switch 1</text>
+                // Get devices for this site
+                const siteDevices = serverDevices.filter(d => d.siteId === site.id);
                 
-                {/* Line from Router to Switch 1 */}
-                <line x1="370" y1="210" x2="230" y2="320" stroke="#9CA3AF" strokeWidth="2" />
-                
-                {/* Servers */}
-                <rect x="170" y="400" width="50" height="40" rx="5" fill="#FEE2E2" stroke="#FF0000" strokeWidth="2" className="device-node" onClick={() => handleDeviceClick({
-                  id: 6,
-                  siteId: 1,
-                  name: "DB Server",
-                  type: "server",
-                  ipAddress: "192.168.1.10",
-                  operatingSystem: "Ubuntu 20.04 LTS",
-                  status: "active"
-                })} />
-                <text x="195" y="424" textAnchor="middle" className="text-xs font-medium">DB</text>
-                
-                <rect x="240" y="400" width="50" height="40" rx="5" fill="#CCE0FF" stroke="#0F62FE" strokeWidth="2" className="device-node" onClick={() => handleDeviceClick({
-                  id: 7,
-                  siteId: 1,
-                  name: "Web Server",
-                  type: "server",
-                  ipAddress: "192.168.1.11",
-                  operatingSystem: "Ubuntu 20.04 LTS",
-                  status: "active"
-                })} />
-                <text x="265" y="424" textAnchor="middle" className="text-xs font-medium">Web</text>
-                
-                {/* Lines from Switch to Servers */}
-                <line x1="230" y1="360" x2="195" y2="400" stroke="#9CA3AF" strokeWidth="2" />
-                <line x1="230" y1="360" x2="265" y2="400" stroke="#9CA3AF" strokeWidth="2" />
-                
-                {/* Risk Indicator */}
-                <circle cx="195" cy="395" r="10" fill="#FF0000" className="animate-pulse" opacity="0.6" />
-              </g>
-              
-              {/* DR Site */}
-              <g>
-                <rect x="500" y="260" width="200" height="300" rx="5" fill="#F3F4F6" stroke="#D1D5DB" strokeWidth="2" strokeDasharray="5,5" />
-                <text x="600" y="280" textAnchor="middle" fontWeight="bold" className="text-sm">DR Site</text>
-                
-                {/* Switch 2 */}
-                <rect x="570" y="320" width="60" height="40" rx="5" fill="#E0E7FF" stroke="#6366F1" strokeWidth="2" className="device-node" onClick={() => handleDeviceClick({
-                  id: 4,
-                  siteId: 2,
-                  name: "Switch DR",
-                  type: "network",
-                  ipAddress: "192.168.2.2",
-                  status: "active"
-                })} />
-                <text x="600" y="344" textAnchor="middle" className="text-xs font-medium">Switch DR</text>
-                
-                {/* Line from Router to Switch 2 */}
-                <line x1="430" y1="210" x2="570" y2="320" stroke="#9CA3AF" strokeWidth="2" />
-                
-                {/* Servers */}
-                <rect x="530" y="400" width="50" height="40" rx="5" fill="#FEF3C7" stroke="#FF832B" strokeWidth="2" className="device-node" onClick={() => handleDeviceClick({
-                  id: 9,
-                  siteId: 2,
-                  name: "Auth Server",
-                  type: "server",
-                  ipAddress: "192.168.2.10",
-                  operatingSystem: "CentOS 8",
-                  status: "active"
-                })} />
-                <text x="555" y="424" textAnchor="middle" className="text-xs font-medium">Auth</text>
-                
-                <rect x="600" y="400" width="50" height="40" rx="5" fill="#D1FAE5" stroke="#42BE65" strokeWidth="2" className="device-node" onClick={() => handleDeviceClick({
-                  id: 10,
-                  siteId: 2,
-                  name: "Log Server",
-                  type: "server",
-                  ipAddress: "192.168.2.11",
-                  operatingSystem: "CentOS 8",
-                  status: "active"
-                })} />
-                <text x="625" y="424" textAnchor="middle" className="text-xs font-medium">Log</text>
-                
-                {/* Lines from Switch to Servers */}
-                <line x1="600" y1="360" x2="555" y2="400" stroke="#9CA3AF" strokeWidth="2" />
-                <line x1="600" y1="360" x2="625" y2="400" stroke="#9CA3AF" strokeWidth="2" />
-                
-                {/* Risk Indicator */}
-                <circle cx="555" cy="395" r="8" fill="#FF832B" className="animate-pulse" opacity="0.6" />
-              </g>
-              
-              {/* Add your actual devices based on the API data here */}
-              {/* This would replace or augment the hardcoded layout above */}
+                return (
+                  <g key={`site-${site.id}`}>
+                    <rect 
+                      x={x} 
+                      y={y} 
+                      width={width} 
+                      height={height} 
+                      rx={5} 
+                      fill="#F3F4F6" 
+                      stroke="#D1D5DB" 
+                      strokeWidth={2} 
+                      strokeDasharray="5,5" 
+                    />
+                    <text 
+                      x={x + (width/2)} 
+                      y={y + 20} 
+                      textAnchor="middle" 
+                      fontWeight="bold" 
+                      className="text-sm"
+                    >
+                      {site.name}
+                    </text>
+                    
+                    {/* Render site's servers */}
+                    {siteDevices.map((device, deviceIndex) => {
+                      // Calculate server positions within site
+                      const serverX = x + 20 + (deviceIndex * 70);
+                      const serverY = y + 140;
+                      
+                      // Determine color based on server status
+                      let fill = "#CCE0FF"; // Default blue for servers
+                      let stroke = "#0F62FE";
+                      
+                      if (device.status === "critical" || device.status === "down") {
+                        fill = "#FEE2E2"; // Red for critical servers
+                        stroke = "#FF0000";
+                      } else if (device.status === "warning") {
+                        fill = "#FEF3C7"; // Orange for warning
+                        stroke = "#FF832B";
+                      } else if (device.status === "secure" || device.status === "compliant") {
+                        fill = "#D1FAE5"; // Green for compliant/secure
+                        stroke = "#42BE65";
+                      }
+                      
+                      return (
+                        <g key={`server-${device.id}`}>
+                          <rect 
+                            x={serverX} 
+                            y={serverY} 
+                            width={50} 
+                            height={40} 
+                            rx={5} 
+                            fill={fill} 
+                            stroke={stroke} 
+                            strokeWidth={2} 
+                            className="device-node" 
+                            onClick={() => handleDeviceClick(device)} 
+                          />
+                          <text 
+                            x={serverX + 25} 
+                            y={serverY + 24} 
+                            textAnchor="middle" 
+                            className="text-xs font-medium"
+                          >
+                            {device.name.length > 6 ? device.name.substring(0, 4) + '...' : device.name}
+                          </text>
+                          
+                          {/* Connection line to site switch */}
+                          <line 
+                            x1={siteIndex === 0 ? 230 : 600}
+                            y1={360} 
+                            x2={serverX + 25} 
+                            y2={serverY} 
+                            stroke="#9CA3AF" 
+                            strokeWidth={2} 
+                          />
+                          
+                          {/* Add risk indicator for critical/warning status */}
+                          {(device.status === "critical" || device.status === "down") && (
+                            <circle cx={serverX + 25} cy={serverY - 5} r={10} fill="#FF0000" className="animate-pulse" opacity={0.6} />
+                          )}
+                          {device.status === "warning" && (
+                            <circle cx={serverX + 25} cy={serverY - 5} r={8} fill="#FF832B" className="animate-pulse" opacity={0.6} />
+                          )}
+                        </g>
+                      );
+                    })}
+                  </g>
+                );
+              })}
               
               {/* Legend */}
               <g transform="translate(20, 530)">
