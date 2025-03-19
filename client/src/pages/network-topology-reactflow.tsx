@@ -202,6 +202,8 @@ export default function NetworkTopology() {
   const [selectedDeviceType, setSelectedDeviceType] = useState<string>("all");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<DeviceDetails | null>(null);
+  const [availableUplinks, setAvailableUplinks] = useState<Device[]>([]);
+  const [selectedUplink, setSelectedUplink] = useState<number | null>(null);
   
   // ReactFlow states
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -232,6 +234,19 @@ export default function NetworkTopology() {
     const parentDevice = device.parentDeviceId ? 
       devices?.find(d => d.id === device.parentDeviceId) : undefined;
     const childDevices = devices?.filter(d => d.parentDeviceId === device.id) || [];
+    
+    // Find potential uplinks for this device (devices in the same site that could be parents)
+    const potentialUplinks = devices?.filter(d => 
+      d.siteId === device.siteId && // Same site
+      d.id !== device.id && // Not the device itself
+      !childDevices.some(child => child.id === d.id) && // Not already a child of this device
+      ((d.type === 'firewall' && device.type !== 'firewall') || // Firewalls can be uplinks for non-firewalls
+       (d.type === 'switch' && device.type === 'server') || // Switches can be uplinks for servers
+       (d.type === 'router' && (device.type === 'switch' || device.type === 'server'))) // Routers can be uplinks for switches or servers
+    ) || [];
+    
+    setAvailableUplinks(potentialUplinks);
+    setSelectedUplink(device.parentDeviceId);
     
     setSelectedDevice({
       ...device,
@@ -279,8 +294,8 @@ export default function NetworkTopology() {
     topology.forEach((site, siteIndex) => {
       const baseX = siteIndex === 0 ? 200 : 600; // Position sites horizontally
       const baseY = 150;
-      const siteWidth = 300;
-      const siteHeight = 300;
+      const siteWidth = 400;
+      const siteHeight = 400;
       
       // Add site group node
       newNodes.push({
@@ -688,26 +703,66 @@ export default function NetworkTopology() {
               <div className="pt-4 border-t border-gray-200">
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Network Relationships</h3>
                 <div className="text-sm text-gray-700 space-y-3">
-                  {/* Parent device info */}
+                  {/* Parent device info with ability to change uplink */}
                   <div>
-                    <h4 className="text-sm font-medium">Parent Device</h4>
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-sm font-medium">Parent Device (Uplink)</h4>
+                      {availableUplinks.length > 0 && (
+                        <div className="text-xs text-blue-600">Change uplink</div>
+                      )}
+                    </div>
+                    
                     {selectedDevice.parentDevice ? (
-                      <div className="p-2 bg-gray-50 rounded flex justify-between items-center mt-1">
-                        <div>
-                          <span className="font-medium">{selectedDevice.parentDevice.name}</span>
-                          <span className="text-gray-500 ml-2 text-xs capitalize">({selectedDevice.parentDevice.type})</span>
+                      <div className="p-2 bg-gray-50 rounded mt-1">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="font-medium">{selectedDevice.parentDevice.name}</span>
+                            <span className="text-gray-500 ml-2 text-xs capitalize">({selectedDevice.parentDevice.type})</span>
+                          </div>
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            selectedDevice.parentDevice.status === 'active' ? 'bg-green-100 text-green-800' : 
+                            selectedDevice.parentDevice.status === 'warning' ? 'bg-amber-100 text-amber-800' : 
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {selectedDevice.parentDevice.status}
+                          </span>
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          selectedDevice.parentDevice.status === 'active' ? 'bg-green-100 text-green-800' : 
-                          selectedDevice.parentDevice.status === 'warning' ? 'bg-amber-100 text-amber-800' : 
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {selectedDevice.parentDevice.status}
-                        </span>
                       </div>
                     ) : (
                       <div className="p-2 bg-gray-50 rounded mt-1">
                         <span className="text-gray-500">No parent device (top-level device)</span>
+                      </div>
+                    )}
+                    
+                    {/* Uplink selection */}
+                    {availableUplinks.length > 0 && (
+                      <div className="mt-2">
+                        <h4 className="text-sm font-medium mb-1">Select New Uplink</h4>
+                        <Select value={selectedUplink?.toString() || ""} onValueChange={(value) => setSelectedUplink(value ? parseInt(value) : null)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a device" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">No uplink (top-level device)</SelectItem>
+                            {availableUplinks.map(device => (
+                              <SelectItem key={device.id} value={device.id.toString()}>
+                                {device.name} ({device.type})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="mt-2 flex justify-end">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              // This would be a real API call in production
+                              alert(`Device connection would be changed in the backend: Device ${selectedDevice.id} would be connected to uplink ${selectedUplink || 'None (top-level)'}`)
+                            }}
+                          >
+                            Update Connection
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
