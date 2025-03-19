@@ -211,6 +211,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parentId = req.query.parentId ? parseInt(req.query.parentId as string) : undefined;
       const topLevelOnly = req.query.topLevelOnly === 'true';
       
+      console.log('Devices API request:', { siteId, parentId, topLevelOnly });
+      
       // Get devices based on the query parameters
       let devices;
       if (parentId) {
@@ -226,7 +228,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(devices);
     } catch (error) {
-      res.status(500).json({ message: "Failed to retrieve devices" });
+      console.error('Error in /api/devices endpoint:', error);
+      res.status(500).json({ message: "Failed to retrieve devices", error: String(error) });
     }
   });
 
@@ -255,18 +258,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Network Topology API (special endpoint that combines sites and devices data with hierarchical structure)
   app.get("/api/topology", isAuthenticated, async (req, res) => {
     try {
+      console.log('Topology API request received');
       const sites = await storage.listSites();
+      console.log('Sites fetched successfully:', sites.length);
+      
       const allDevices = await storage.listDevices();
+      console.log('All devices fetched successfully:', allDevices.length);
       
       // Create a topology map with sites and their top-level devices
       const topology = await Promise.all(sites.map(async site => {
+        console.log(`Processing site ${site.id}: ${site.name}`);
         // Get the top-level devices for this site
         const topLevelDevices = await storage.listTopLevelDevices(site.id);
+        console.log(`Top level devices for site ${site.id}:`, topLevelDevices.length);
         
         // For each top-level device, find its children recursively
         const processedDevices = await Promise.all(
           topLevelDevices.map(async device => {
             const childDevices = await storage.listDeviceChildren(device.id);
+            console.log(`Child devices for device ${device.id}:`, childDevices.length);
             return {
               ...device,
               children: childDevices
@@ -280,9 +290,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }));
       
+      console.log('Topology processed successfully, returning response');
       res.json(topology);
     } catch (error) {
-      res.status(500).json({ message: "Failed to retrieve network topology" });
+      console.error('Error in /api/topology endpoint:', error);
+      res.status(500).json({ message: "Failed to retrieve network topology", error: String(error) });
     }
   });
 
