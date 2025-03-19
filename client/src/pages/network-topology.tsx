@@ -21,6 +21,135 @@ interface DeviceNode extends Device {
   children?: DeviceNode[];
 }
 
+// Helper function to render a device and its children recursively
+function renderDeviceHierarchy(
+  device: DeviceNode, 
+  x: number, 
+  y: number, 
+  level: number, 
+  availableWidth: number,
+  handleDeviceClick: (device: Device) => void
+): React.ReactNode {
+  // Determine colors based on device type and status
+  let fill = "#E0E7FF"; // Default for switches
+  let stroke = "#6366F1";
+  
+  if (device.type === 'firewall') {
+    fill = "#FEF3C7";
+    stroke = "#FF832B";
+  } else if (device.type === 'router') {
+    fill = "#D1FAE5";
+    stroke = "#42BE65";
+  } else if (device.type === 'server') {
+    fill = "#CCE0FF";
+    stroke = "#0F62FE";
+    
+    // Additional server status colors
+    if (device.status === "critical" || device.status === "down") {
+      fill = "#FEE2E2";
+      stroke = "#FF0000";
+    } else if (device.status === "warning") {
+      fill = "#FEF3C7"; 
+      stroke = "#FF832B";
+    } else if (device.status === "secure" || device.status === "compliant") {
+      fill = "#D1FAE5";
+      stroke = "#42BE65";
+    }
+  }
+  
+  // Calculate child positions
+  const hasChildren = device.children && device.children.length > 0;
+  const nodeWidth = device.type === 'server' ? 50 : 60;
+  const nodeHeight = 40;
+  
+  // Calculate vertical spacing based on level
+  const verticalSpacing = 70;
+  
+  // Create array to hold all elements (device node + child nodes + connection lines)
+  const elements: React.ReactNode[] = [];
+  
+  // Add the device node
+  elements.push(
+    <g key={`device-${device.id}`}>
+      <rect 
+        x={x} 
+        y={y} 
+        width={nodeWidth} 
+        height={nodeHeight} 
+        rx={5} 
+        fill={fill} 
+        stroke={stroke} 
+        strokeWidth={2} 
+        className="device-node" 
+        onClick={() => handleDeviceClick(device)} 
+      />
+      
+      {/* Network interface port */}
+      <circle cx={x + nodeWidth/2} cy={y} r={3} fill={stroke} />
+      
+      {/* Device label */}
+      <text 
+        x={x + nodeWidth/2} 
+        y={y + 24} 
+        textAnchor="middle" 
+        className="text-xs font-medium"
+      >
+        {device.name.length > 6 ? device.name.substring(0, 5) + '...' : device.name}
+      </text>
+      
+      {/* Add risk indicator for critical/warning status */}
+      {(device.status === "critical" || device.status === "down") && (
+        <circle cx={x + nodeWidth/2} cy={y - 10} r={5} fill="#FF0000" className="animate-pulse" opacity={0.6} />
+      )}
+      {device.status === "warning" && (
+        <circle cx={x + nodeWidth/2} cy={y - 10} r={5} fill="#FF832B" className="animate-pulse" opacity={0.6} />
+      )}
+    </g>
+  );
+  
+  // Render children if any exist
+  if (hasChildren && device.children) {
+    const childrenCount = device.children.length;
+    const childWidth = availableWidth / childrenCount;
+    
+    // Map through children and create connection lines + child nodes
+    device.children.forEach((child, index) => {
+      // Calculate positions for child devices
+      const childX = x - (availableWidth/2) + (childWidth * index) + (childWidth/2) - 25;
+      const childY = y + verticalSpacing;
+      
+      // Draw connection line from parent to child
+      const connPath = `M${x + nodeWidth/2},${y + nodeHeight} C${x + nodeWidth/2},${y + nodeHeight + 20} ${childX + 25},${childY - 20} ${childX + 25},${childY}`;
+      
+      // Add connection line
+      elements.push(
+        <path 
+          key={`conn-${device.id}-${child.id}`}
+          d={connPath}
+          fill="none"
+          stroke="#9CA3AF" 
+          strokeWidth={2} 
+        />
+      );
+      
+      // Recursively render child and its children
+      const childElements = renderDeviceHierarchy(
+        child, 
+        childX, 
+        childY, 
+        level + 1, 
+        childWidth - 10,
+        handleDeviceClick
+      );
+      
+      // Add child elements to the array
+      elements.push(childElements);
+    });
+  }
+  
+  return <g key={`hierarchy-${device.id}`}>{elements}</g>;
+}
+
 interface DeviceDetails {
   id: number;
   name: string;
@@ -386,9 +515,6 @@ export default function NetworkTopology() {
                 const y = 260;
                 const height = 300;
                 
-                // Get devices for this site
-                const siteDevices = serverDevices.filter(d => d.siteId === site.id);
-                
                 return (
                   <g key={`site-${site.id}`}>
                     <rect 
@@ -412,114 +538,23 @@ export default function NetworkTopology() {
                       {site.name}
                     </text>
                     
-                    {/* Render site's servers */}
-                    {siteDevices.map((device, deviceIndex) => {
-                      // Calculate server positions within site
-                      const serverX = x + 20 + (deviceIndex * 70);
-                      const serverY = y + 140;
+                    {/* Render site's devices hierarchically */}
+                    {site.devices && site.devices.map((device, deviceIndex) => {
+                      // Define starting position for the top-level devices in this site
+                      const deviceX = x + 20 + (deviceIndex * (width - 40) / Math.max(1, site.devices?.length || 1));
+                      const deviceY = y + 60; // Start from top of site box
                       
-                      // Determine color based on server status
-                      let fill = "#CCE0FF"; // Default blue for servers
-                      let stroke = "#0F62FE";
-                      
-                      if (device.status === "critical" || device.status === "down") {
-                        fill = "#FEE2E2"; // Red for critical servers
-                        stroke = "#FF0000";
-                      } else if (device.status === "warning") {
-                        fill = "#FEF3C7"; // Orange for warning
-                        stroke = "#FF832B";
-                      } else if (device.status === "secure" || device.status === "compliant") {
-                        fill = "#D1FAE5"; // Green for compliant/secure
-                        stroke = "#42BE65";
-                      }
-                      
-                      return (
-                        <g key={`server-${device.id}`}>
-                          {/* Server representation */}
-                          <rect 
-                            x={serverX} 
-                            y={serverY} 
-                            width={50} 
-                            height={40} 
-                            rx={5} 
-                            fill={fill} 
-                            stroke={stroke} 
-                            strokeWidth={2} 
-                            className="device-node" 
-                            onClick={() => handleDeviceClick(device)} 
-                          />
-                          
-                          {/* Network interface port */}
-                          <circle cx={serverX + 25} cy={serverY} r={3} fill={stroke} />
-                          
-                          {/* Port details */}
-                          {device.ipAddress && (
-                            <text 
-                              x={serverX + 25} 
-                              y={serverY - 5} 
-                              textAnchor="middle" 
-                              className="text-[8px] font-medium"
-                              fill="#6B7280"
-                            >
-                              NIC
-                            </text>
-                          )}
-                          
-                          {/* Server label */}
-                          <text 
-                            x={serverX + 25} 
-                            y={serverY + 24} 
-                            textAnchor="middle" 
-                            className="text-xs font-medium"
-                          >
-                            {device.name.length > 6 ? device.name.substring(0, 4) + '...' : device.name}
-                          </text>
-                          
-                          {/* Connection line to site switch with curve */}
-                          <path 
-                            d={`M${siteIndex === 0 ? 230 : 600},360 
-                               C${siteIndex === 0 ? 250 : 580},${serverY + 20} 
-                                ${serverX + (siteIndex === 0 ? 10 : 40)},${serverY + 15} 
-                                ${serverX + 25},${serverY}`}
-                            fill="none"
-                            stroke="#9CA3AF" 
-                            strokeWidth={2} 
-                          />
-                          
-                          {/* Add risk indicator for critical/warning status */}
-                          {(device.status === "critical" || device.status === "down") && (
-                            <circle cx={serverX + 25} cy={serverY - 15} r={8} fill="#FF0000" className="animate-pulse" opacity={0.6} />
-                          )}
-                          {device.status === "warning" && (
-                            <circle cx={serverX + 25} cy={serverY - 15} r={6} fill="#FF832B" className="animate-pulse" opacity={0.6} />
-                          )}
-                          
-                          {/* Service indicators */}
-                          {device.services && (
-                            <g>
-                              <rect 
-                                x={serverX + 5} 
-                                y={serverY + 30} 
-                                width={40} 
-                                height={12} 
-                                rx={3} 
-                                fill="#F3F4F6" 
-                                stroke={stroke} 
-                                strokeWidth={1} 
-                              />
-                              <text 
-                                x={serverX + 25} 
-                                y={serverY + 39} 
-                                textAnchor="middle" 
-                                className="text-[8px]"
-                              >
-                                {device.services.split(',')[0] || 'Service'}
-                              </text>
-                            </g>
-                          )}
-                        </g>
+                      // Render the device and its children recursively using our helper function
+                      return renderDeviceHierarchy(
+                        device, 
+                        deviceX, 
+                        deviceY, 
+                        0, 
+                        width - 40,
+                        handleDeviceClick
                       );
                     })}
+
                   </g>
                 );
               })}
