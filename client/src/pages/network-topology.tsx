@@ -194,71 +194,176 @@ export default function NetworkTopology() {
               <ellipse cx="400" cy="50" rx="120" ry="40" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="2" className="device-node" />
               <text x="400" y="55" textAnchor="middle" className="text-sm font-medium">Internet</text>
               
-              {/* Dynamic Network Infrastructure */}
-              {networkDevices.slice(0, 5).map((device, index) => {
-                // Calculate positions based on index and device type
-                let x = 370;
-                let y = 120; // Default position for first device (usually firewall)
-                
-                if (device.type === 'router') {
-                  y = 190; // Router position
-                } else if (device.type === 'switch') {
-                  // Position switches based on their site and available positions
-                  const site = sites?.find(s => s.id === device.siteId);
-                  if (site && site.id === 1) {
-                    // Primary site switch
-                    x = 200;
-                    y = 320;
-                  } else {
-                    // DR site or other switches
-                    x = 570; 
-                    y = 320;
-                  }
-                }
-                
-                // Determine color based on device type
-                let fill = "#FEF3C7"; // Default - orange for firewall
-                let stroke = "#FF832B";
-                
-                if (device.type === "router") {
-                  fill = "#D1FAE5"; // Green for router
-                  stroke = "#42BE65";
-                } else if (device.type === "switch") {
-                  fill = "#E0E7FF"; // Blue for switch
-                  stroke = "#6366F1";
-                }
-                
-                return (
-                  <g key={`network-${device.id}`}>
-                    <rect 
-                      x={x} 
-                      y={y} 
-                      width={60} 
-                      height={40} 
-                      rx={5} 
-                      fill={fill} 
-                      stroke={stroke} 
-                      strokeWidth={2} 
-                      className="device-node" 
-                      onClick={() => handleDeviceClick(device)} 
-                    />
-                    <text 
-                      x={x + 30} 
-                      y={y + 24} 
-                      textAnchor="middle" 
-                      className="text-xs font-medium"
-                    >
-                      {device.name.length > 10 ? device.name.substring(0, 8) + '...' : device.name}
-                    </text>
-                  </g>
-                );
+              {/* Internet Connection Line with Interface Symbol */}
+              <line x1="400" y1="90" x2="400" y2="115" stroke="#9CA3AF" strokeWidth="2" />
+              <circle cx="400" cy="115" r="3" fill="#9CA3AF" /> {/* Interface point */}
+              
+              {/* Dynamic Network Infrastructure with Interfaces */}
+              {networkDevices
+                .filter(d => d.type === 'firewall')
+                .map((device, index) => {
+                  // Position at the top for firewall (between internet and internal network)
+                  const x = 370;
+                  const y = 120;
+                  
+                  return (
+                    <g key={`firewall-${device.id}`}>
+                      {/* Firewall device - special shape with multiple interfaces */}
+                      <rect 
+                        x={x} 
+                        y={y} 
+                        width={60} 
+                        height={40} 
+                        rx={5} 
+                        fill="#FEF3C7" 
+                        stroke="#FF832B" 
+                        strokeWidth={2} 
+                        className="device-node" 
+                        onClick={() => handleDeviceClick(device)} 
+                      />
+                      
+                      {/* Input interface at top */}
+                      <circle cx={x + 30} cy={y} r={3} fill="#FF832B" />
+                      
+                      {/* Output interfaces at bottom */}
+                      <circle cx={x + 20} cy={y + 40} r={3} fill="#FF832B" />
+                      <circle cx={x + 40} cy={y + 40} r={3} fill="#FF832B" />
+                      
+                      {/* Interface labels */}
+                      <text x={x + 40} y={y + 5} textAnchor="start" className="text-[8px]">WAN</text>
+                      <text x={x + 15} y={y + 35} textAnchor="middle" className="text-[8px]">LAN1</text>
+                      <text x={x + 45} y={y + 35} textAnchor="middle" className="text-[8px]">LAN2</text>
+                      
+                      <text 
+                        x={x + 30} 
+                        y={y + 24} 
+                        textAnchor="middle" 
+                        className="text-xs font-medium"
+                      >
+                        {device.name.length > 10 ? device.name.substring(0, 8) + '...' : device.name}
+                      </text>
+                    </g>
+                  );
               })}
               
-              {/* Network Connection Lines */}
-              <line x1="400" y1="90" x2="400" y2="120" stroke="#9CA3AF" strokeWidth="2" /> {/* Internet to Firewall */}
-              <line x1="400" y1="160" x2="400" y2="190" stroke="#9CA3AF" strokeWidth="2" /> {/* Firewall to Router */}
-              <line x1="370" y1="210" x2="230" y2="320" stroke="#9CA3AF" strokeWidth="2" /> {/* Router to Primary Switch */}
-              <line x1="430" y1="210" x2="570" y2="320" stroke="#9CA3AF" strokeWidth="2" /> {/* Router to DR Switch */}
+              {/* Router Devices */}
+              {networkDevices
+                .filter(d => d.type === 'router')
+                .map((device, index) => {
+                  const x = 370;
+                  const y = 190;
+                  
+                  return (
+                    <g key={`router-${device.id}`}>
+                      <rect 
+                        x={x} 
+                        y={y} 
+                        width={60} 
+                        height={40} 
+                        rx={5} 
+                        fill="#D1FAE5" 
+                        stroke="#42BE65" 
+                        strokeWidth={2} 
+                        className="device-node" 
+                        onClick={() => handleDeviceClick(device)} 
+                      />
+                      
+                      {/* Input interface at top */}
+                      <circle cx={x + 30} cy={y} r={3} fill="#42BE65" />
+                      
+                      {/* Output interfaces at left and right sides */}
+                      <circle cx={x} cy={y + 20} r={3} fill="#42BE65" />
+                      <circle cx={x + 60} cy={y + 20} r={3} fill="#42BE65" />
+                      
+                      <text 
+                        x={x + 30} 
+                        y={y + 24} 
+                        textAnchor="middle" 
+                        className="text-xs font-medium"
+                      >
+                        {device.name.length > 10 ? device.name.substring(0, 8) + '...' : device.name}
+                      </text>
+                    </g>
+                  );
+              })}
+              
+              {/* Switch Devices */}
+              {networkDevices
+                .filter(d => d.type === 'switch')
+                .map((device, index) => {
+                  // Position switches based on their site
+                  const site = sites?.find(s => s.id === device.siteId);
+                  let x = 200; // Default primary site
+                  let y = 320;
+                  
+                  if (site && site.id !== 1) {
+                    // Secondary/DR site
+                    x = 570;
+                    y = 320;
+                  }
+                  
+                  return (
+                    <g key={`switch-${device.id}`}>
+                      <rect 
+                        x={x} 
+                        y={y} 
+                        width={60} 
+                        height={40} 
+                        rx={5} 
+                        fill="#E0E7FF" 
+                        stroke="#6366F1" 
+                        strokeWidth={2} 
+                        className="device-node" 
+                        onClick={() => handleDeviceClick(device)} 
+                      />
+                      
+                      {/* Input interface at top */}
+                      <circle cx={x + 30} cy={y} r={3} fill="#6366F1" />
+                      
+                      {/* Multiple output interfaces at bottom for servers */}
+                      <circle cx={x + 15} cy={y + 40} r={3} fill="#6366F1" />
+                      <circle cx={x + 30} cy={y + 40} r={3} fill="#6366F1" />
+                      <circle cx={x + 45} cy={y + 40} r={3} fill="#6366F1" />
+                      
+                      <text 
+                        x={x + 30} 
+                        y={y + 24} 
+                        textAnchor="middle" 
+                        className="text-xs font-medium"
+                      >
+                        {device.name.length > 10 ? device.name.substring(0, 8) + '...' : device.name}
+                      </text>
+                    </g>
+                  );
+              })}
+              
+              {/* Network Connection Lines with Interfaces */}
+              {/* Internet to Firewall */}
+              <line x1="400" y1="118" x2="400" y2="120" stroke="#9CA3AF" strokeWidth="2" />
+              
+              {/* Firewall to Router */}
+              <path 
+                d="M390,160 L390,170 Q390,175 395,175 L405,175 Q410,175 410,180 L410,190" 
+                fill="none" 
+                stroke="#9CA3AF" 
+                strokeWidth="2" 
+              />
+              
+              {/* Router to Primary Switch (Site 1) */}
+              <path 
+                d="M370,210 L350,210 Q340,210 335,220 L270,290 Q265,300 255,305 L235,315" 
+                fill="none" 
+                stroke="#9CA3AF" 
+                strokeWidth="2" 
+              />
+              
+              {/* Router to DR Switch (Site 2) */}
+              <path 
+                d="M430,210 L450,210 Q460,210 465,220 L530,290 Q535,300 550,310 L570,320" 
+                fill="none" 
+                stroke="#9CA3AF" 
+                strokeWidth="2" 
+              />
               
               {/* Dynamic Site Areas */}
               {topology?.map((site, siteIndex) => {
@@ -317,6 +422,7 @@ export default function NetworkTopology() {
                       
                       return (
                         <g key={`server-${device.id}`}>
+                          {/* Server representation */}
                           <rect 
                             x={serverX} 
                             y={serverY} 
@@ -329,6 +435,24 @@ export default function NetworkTopology() {
                             className="device-node" 
                             onClick={() => handleDeviceClick(device)} 
                           />
+                          
+                          {/* Network interface port */}
+                          <circle cx={serverX + 25} cy={serverY} r={3} fill={stroke} />
+                          
+                          {/* Port details */}
+                          {device.ipAddress && (
+                            <text 
+                              x={serverX + 25} 
+                              y={serverY - 5} 
+                              textAnchor="middle" 
+                              className="text-[8px] font-medium"
+                              fill="#6B7280"
+                            >
+                              NIC
+                            </text>
+                          )}
+                          
+                          {/* Server label */}
                           <text 
                             x={serverX + 25} 
                             y={serverY + 24} 
@@ -338,22 +462,47 @@ export default function NetworkTopology() {
                             {device.name.length > 6 ? device.name.substring(0, 4) + '...' : device.name}
                           </text>
                           
-                          {/* Connection line to site switch */}
-                          <line 
-                            x1={siteIndex === 0 ? 230 : 600}
-                            y1={360} 
-                            x2={serverX + 25} 
-                            y2={serverY} 
+                          {/* Connection line to site switch with curve */}
+                          <path 
+                            d={`M${siteIndex === 0 ? 230 : 600},360 
+                               C${siteIndex === 0 ? 250 : 580},${serverY + 20} 
+                                ${serverX + (siteIndex === 0 ? 10 : 40)},${serverY + 15} 
+                                ${serverX + 25},${serverY}`}
+                            fill="none"
                             stroke="#9CA3AF" 
                             strokeWidth={2} 
                           />
                           
                           {/* Add risk indicator for critical/warning status */}
                           {(device.status === "critical" || device.status === "down") && (
-                            <circle cx={serverX + 25} cy={serverY - 5} r={10} fill="#FF0000" className="animate-pulse" opacity={0.6} />
+                            <circle cx={serverX + 25} cy={serverY - 15} r={8} fill="#FF0000" className="animate-pulse" opacity={0.6} />
                           )}
                           {device.status === "warning" && (
-                            <circle cx={serverX + 25} cy={serverY - 5} r={8} fill="#FF832B" className="animate-pulse" opacity={0.6} />
+                            <circle cx={serverX + 25} cy={serverY - 15} r={6} fill="#FF832B" className="animate-pulse" opacity={0.6} />
+                          )}
+                          
+                          {/* Service indicators */}
+                          {device.services && (
+                            <g>
+                              <rect 
+                                x={serverX + 5} 
+                                y={serverY + 30} 
+                                width={40} 
+                                height={12} 
+                                rx={3} 
+                                fill="#F3F4F6" 
+                                stroke={stroke} 
+                                strokeWidth={1} 
+                              />
+                              <text 
+                                x={serverX + 25} 
+                                y={serverY + 39} 
+                                textAnchor="middle" 
+                                className="text-[8px]"
+                              >
+                                {device.services.split(',')[0] || 'Service'}
+                              </text>
+                            </g>
                           )}
                         </g>
                       );
@@ -363,7 +512,8 @@ export default function NetworkTopology() {
               })}
               
               {/* Legend */}
-              <g transform="translate(20, 530)">
+              <g transform="translate(20, 520)">
+                {/* Risk Legend */}
                 <rect x="0" y="0" width="200" height="60" rx="5" fill="white" stroke="#D1D5DB" />
                 <text x="10" y="20" className="text-xs font-bold">Risk Level</text>
                 <circle cx="20" cy="35" r="5" fill="#FF0000" />
@@ -372,6 +522,26 @@ export default function NetworkTopology() {
                 <text x="90" y="39" className="text-xs">Medium Risk</text>
                 <circle cx="150" cy="35" r="5" fill="#42BE65" />
                 <text x="160" y="39" className="text-xs">Low Risk</text>
+                
+                {/* Network Interfaces Legend */}
+                <rect x="220" y="0" width="280" height="60" rx="5" fill="white" stroke="#D1D5DB" />
+                <text x="230" y="20" className="text-xs font-bold">Network Interfaces</text>
+                
+                {/* Firewall interface */}
+                <circle cx="240" cy="35" r="3" fill="#FF832B" />
+                <text x="250" y="39" className="text-xs">Firewall</text>
+                
+                {/* Router interface */}
+                <circle cx="310" cy="35" r="3" fill="#42BE65" />
+                <text x="320" y="39" className="text-xs">Router</text>
+                
+                {/* Switch interface */}
+                <circle cx="370" cy="35" r="3" fill="#6366F1" />
+                <text x="380" y="39" className="text-xs">Switch</text>
+                
+                {/* Server interface */}
+                <circle cx="430" cy="35" r="3" fill="#0F62FE" />
+                <text x="440" y="39" className="text-xs">Server</text>
               </g>
             </svg>
           </div>
@@ -423,10 +593,110 @@ export default function NetworkTopology() {
                 </div>
               </div>
               
+              {/* Network interfaces section for firewalls and network devices */}
+              {(selectedDevice.type === 'firewall' || selectedDevice.type === 'router' || selectedDevice.type === 'switch') && (
+                <div className="pt-4 border-t border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Network Interfaces</h3>
+                  <div className="text-sm space-y-2">
+                    {selectedDevice.type === 'firewall' && (
+                      <>
+                        <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="flex items-center">
+                            <div className="h-3 w-3 rounded-full bg-amber-500 mr-2"></div>
+                            <span>WAN Interface</span>
+                          </div>
+                          <div className="text-gray-600">Internet Facing</div>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="flex items-center">
+                            <div className="h-3 w-3 rounded-full bg-amber-500 mr-2"></div>
+                            <span>LAN1 Interface</span>
+                          </div>
+                          <div className="text-gray-600">Primary Site</div>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="flex items-center">
+                            <div className="h-3 w-3 rounded-full bg-amber-500 mr-2"></div>
+                            <span>LAN2 Interface</span>
+                          </div>
+                          <div className="text-gray-600">DR Site</div>
+                        </div>
+                      </>
+                    )}
+                    
+                    {selectedDevice.type === 'router' && (
+                      <>
+                        <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="flex items-center">
+                            <div className="h-3 w-3 rounded-full bg-green-500 mr-2"></div>
+                            <span>Main Interface</span>
+                          </div>
+                          <div className="text-gray-600">Firewall Connection</div>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="flex items-center">
+                            <div className="h-3 w-3 rounded-full bg-green-500 mr-2"></div>
+                            <span>Primary Site Interface</span>
+                          </div>
+                          <div className="text-gray-600">Primary Network</div>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="flex items-center">
+                            <div className="h-3 w-3 rounded-full bg-green-500 mr-2"></div>
+                            <span>DR Site Interface</span>
+                          </div>
+                          <div className="text-gray-600">Disaster Recovery</div>
+                        </div>
+                      </>
+                    )}
+                    
+                    {selectedDevice.type === 'switch' && (
+                      <>
+                        <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="flex items-center">
+                            <div className="h-3 w-3 rounded-full bg-indigo-500 mr-2"></div>
+                            <span>Uplink Interface</span>
+                          </div>
+                          <div className="text-gray-600">Router Connection</div>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="flex items-center">
+                            <div className="h-3 w-3 rounded-full bg-indigo-500 mr-2"></div>
+                            <span>Server Ports (1-16)</span>
+                          </div>
+                          <div className="text-gray-600">Device Connections</div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Related compliance controls section */}
               <div className="pt-4 border-t border-gray-200">
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Related Compliance Controls</h3>
                 <div className="text-sm text-gray-700">
-                  No related compliance controls found.
+                  {selectedDevice.type === 'firewall' ? (
+                    <div className="space-y-1">
+                      <div className="p-2 bg-gray-50 rounded flex justify-between">
+                        <span>FW-001: Firewall Baseline</span>
+                        <span className="text-green-600">Compliant</span>
+                      </div>
+                      <div className="p-2 bg-gray-50 rounded flex justify-between">
+                        <span>FW-002: Rule Review</span>
+                        <span className="text-amber-600">Pending</span>
+                      </div>
+                    </div>
+                  ) : selectedDevice.type === 'server' && selectedDevice.status === 'critical' ? (
+                    <div className="space-y-1">
+                      <div className="p-2 bg-gray-50 rounded flex justify-between">
+                        <span>SRV-003: Patch Management</span>
+                        <span className="text-red-600">Non-compliant</span>
+                      </div>
+                    </div>
+                  ) : (
+                    "No related compliance controls found."
+                  )}
                 </div>
               </div>
             </div>
