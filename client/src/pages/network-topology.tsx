@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/layout/dashboard-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +29,7 @@ function renderDeviceHierarchy(
   level: number, 
   availableWidth: number,
   handleDeviceClick: (device: Device) => void
-): React.ReactNode {
+): JSX.Element {
   // Determine colors based on device type and status
   let fill = "#E0E7FF"; // Default for switches
   let stroke = "#6366F1";
@@ -545,13 +545,17 @@ export default function NetworkTopology() {
                       const deviceY = y + 60; // Start from top of site box
                       
                       // Render the device and its children recursively using our helper function
-                      return renderDeviceHierarchy(
-                        device, 
-                        deviceX, 
-                        deviceY, 
-                        0, 
-                        width - 40,
-                        handleDeviceClick
+                      return (
+                        <React.Fragment key={`device-hierarchy-${device.id}`}>
+                          {renderDeviceHierarchy(
+                            device, 
+                            deviceX, 
+                            deviceY, 
+                            0, 
+                            width - 40,
+                            handleDeviceClick
+                          )}
+                        </React.Fragment>
                       );
                     })}
 
