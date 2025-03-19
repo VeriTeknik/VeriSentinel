@@ -2,15 +2,23 @@ import { pgTable, text, serial, integer, timestamp, varchar, boolean } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// User model
+// User model with PCI-DSS RACI roles
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
   email: text("email").notNull(),
-  role: text("role").notNull().default("user"),
+  // Enhanced roles for RACI matrix
+  role: text("role").notNull().default("user"), // admin, ciso, cto, security_manager, network_admin, system_admin, auditor, user
+  department: text("department"), // IT, Security, Operations, Compliance, Executive, etc.
+  isApprover: boolean("is_approver").default(false), // Can approve change requests
+  isRequester: boolean("is_requester").default(false), // Can request changes
+  approvalLevel: integer("approval_level").default(0), // 0=no approval powers, 1=L1, 2=L2, 3=L3 (CISO/CTO level)
+  pciResponsibilities: text("pci_responsibilities").array(), // List of PCI-DSS requirements they're responsible for
   avatar: text("avatar"),
+  lastLogin: timestamp("last_login"),
+  isActive: boolean("is_active").default(true),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -19,6 +27,11 @@ export const insertUserSchema = createInsertSchema(users).pick({
   name: true,
   email: true,
   role: true,
+  department: true, 
+  isApprover: true,
+  isRequester: true,
+  approvalLevel: true,
+  pciResponsibilities: true,
 });
 
 // Compliance framework model
@@ -117,24 +130,53 @@ export const insertDeviceSchema = createInsertSchema(devices).pick({
   status: true,
 });
 
-// Change request model
+// Change request model with RACI matrix support
 export const changeRequests = pgTable("change_requests", {
   id: serial("id").primaryKey(),
-  title: text("title").notNull(), // Replaces type
-  status: text("status").notNull(), // pending, approved, rejected, implemented
-  description: text("description").notNull(), // Replaces details
-  requestedBy: integer("requested_by").notNull(), // Replaces requesterId
-  approverId: integer("approver_id"),
-  implementerId: integer("implementer_id"),
+  title: text("title").notNull(),
+  status: text("status").notNull(), // draft, pending_review, pending_approval, approved, rejected, implemented, closed
+  riskLevel: text("risk_level").notNull().default("medium"), // low, medium, high, critical
+  description: text("description").notNull(),
+  
+  // RACI Matrix Roles
+  requestedBy: integer("requested_by").notNull(), // Requester (Responsible)
+  assignedTo: integer("assigned_to"), // Implementer (Responsible)
+  
+  // Multiple approvals based on RACI matrix
+  technicalApprovalStatus: text("technical_approval_status").default("pending"), // pending, approved, rejected
+  technicalApproverId: integer("technical_approver_id"), // CTO or delegate (Accountable)
+  technicalApprovedAt: timestamp("technical_approved_at"),
+  
+  securityApprovalStatus: text("security_approval_status").default("pending"), // pending, approved, rejected
+  securityApproverId: integer("security_approver_id"), // CISO or delegate (Accountable)
+  securityApprovedAt: timestamp("security_approved_at"),
+  
+  businessApprovalStatus: text("business_approval_status").default("pending"), // pending, approved, rejected
+  businessApproverId: integer("business_approver_id"), // Business owner (Accountable)
+  businessApprovedAt: timestamp("business_approved_at"),
+  
+  // Dates
   requestedAt: timestamp("requested_at").notNull().defaultNow(),
-  approvedAt: timestamp("approved_at"),
+  scheduledFor: timestamp("scheduled_for"), // When the change is scheduled to occur
   implementedAt: timestamp("implemented_at"),
+  closedAt: timestamp("closed_at"),
+  
+  // Additional tracking
+  affectedSystems: text("affected_systems"), // Comma-separated list of systems
+  backoutPlan: text("backout_plan"), // Plan to revert changes if issues occur
+  relatedControlIds: text("related_control_ids").array(), // Related compliance controls
+  comments: text("comments"), // Any additional notes or comments
 });
 
 export const insertChangeRequestSchema = createInsertSchema(changeRequests).pick({
-  title: true, 
+  title: true,
   description: true,
   requestedBy: true,
+  riskLevel: true,
+  scheduledFor: true,
+  affectedSystems: true,
+  backoutPlan: true,
+  relatedControlIds: true,
 });
 
 // Task model
@@ -173,6 +215,41 @@ export const insertSprintSchema = createInsertSchema(sprints).pick({
   startDate: true,
   endDate: true,
   status: true,
+});
+
+// PCI-DSS specific controls with RACI matrix
+export const pciDssControls = pgTable("pci_dss_controls", {
+  id: serial("id").primaryKey(),
+  controlNumber: text("control_number").notNull(), // e.g., "1.1.1", "2.2.4"
+  requirement: text("requirement").notNull(), // The PCI requirement text
+  section: text("section").notNull(), // Primary PCI-DSS section (1-12)
+  description: text("description"), // Detailed explanation
+  guidance: text("guidance"), // Implementation guidance
+  
+  // RACI matrix elements
+  responsibleRoleId: integer("responsible_role_id"), // Who is responsible for doing the work (R)
+  accountableRoleId: integer("accountable_role_id"), // Who has final authority (A)
+  consultedRoleIds: text("consulted_role_ids").array(), // Who must be consulted before action (C)
+  informedRoleIds: text("informed_role_ids").array(), // Who must be informed after action (I)
+  
+  // Status tracking
+  status: text("status").notNull().default("not_assessed"), // not_assessed, non_compliant, partially_compliant, compliant
+  evidenceRequired: boolean("evidence_required").default(true),
+  lastAssessedAt: timestamp("last_assessed_at"),
+  nextAssessmentDue: timestamp("next_assessment_due"),
+});
+
+export const insertPciDssControlSchema = createInsertSchema(pciDssControls).pick({
+  controlNumber: true,
+  requirement: true,
+  section: true,
+  description: true,
+  guidance: true,
+  responsibleRoleId: true,
+  accountableRoleId: true,
+  consultedRoleIds: true,
+  informedRoleIds: true,
+  evidenceRequired: true,
 });
 
 // Audit log model
@@ -224,3 +301,6 @@ export type InsertSprint = z.infer<typeof insertSprintSchema>;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
+export type PciDssControl = typeof pciDssControls.$inferSelect;
+export type InsertPciDssControl = z.infer<typeof insertPciDssControlSchema>;

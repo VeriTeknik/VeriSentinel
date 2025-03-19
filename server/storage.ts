@@ -1,6 +1,7 @@
 import { 
   users, complianceFrameworks, complianceControls, evidence, 
-  sites, devices, changeRequests, tasks, sprints, auditLogs 
+  sites, devices, changeRequests, tasks, sprints, auditLogs,
+  pciDssControls
 } from "@shared/schema";
 import type { 
   User, InsertUser, 
@@ -12,7 +13,8 @@ import type {
   ChangeRequest, InsertChangeRequest,
   Task, InsertTask,
   Sprint, InsertSprint,
-  AuditLog, InsertAuditLog
+  AuditLog, InsertAuditLog,
+  PciDssControl, InsertPciDssControl
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -33,6 +35,8 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   listUsers(): Promise<User[]>;
+  getUsersByRole(role: string): Promise<User[]>;
+  getUsersWithApprovalRights(): Promise<User[]>;
   
   // Compliance framework management
   createComplianceFramework(framework: InsertComplianceFramework): Promise<ComplianceFramework>;
@@ -44,6 +48,13 @@ export interface IStorage {
   getComplianceControl(id: number): Promise<ComplianceControl | undefined>;
   updateComplianceControl(id: number, control: Partial<InsertComplianceControl>): Promise<ComplianceControl | undefined>;
   listComplianceControls(frameworkId?: number): Promise<ComplianceControl[]>;
+  
+  // PCI-DSS specific controls and RACI management
+  createPciDssControl(control: InsertPciDssControl): Promise<PciDssControl>;
+  getPciDssControl(id: number): Promise<PciDssControl | undefined>;
+  updatePciDssControl(id: number, control: Partial<InsertPciDssControl>): Promise<PciDssControl | undefined>;
+  listPciDssControls(section?: string): Promise<PciDssControl[]>;
+  getPciDssControlsByRole(roleId: number): Promise<PciDssControl[]>;
   
   // Evidence management
   createEvidence(evidenceItem: InsertEvidence): Promise<Evidence>;
@@ -61,12 +72,18 @@ export interface IStorage {
   listDevices(siteId?: number): Promise<Device[]>;
   listDeviceChildren(parentDeviceId: number): Promise<Device[]>;
   listTopLevelDevices(siteId: number): Promise<Device[]>;
+  updateDevice(id: number, device: Partial<InsertDevice>): Promise<Device | undefined>;
   
-  // Change request management
+  // Change request management with RACI matrix support
   createChangeRequest(changeRequest: InsertChangeRequest): Promise<ChangeRequest>;
   getChangeRequest(id: number): Promise<ChangeRequest | undefined>;
   updateChangeRequest(id: number, changeRequest: Partial<ChangeRequest>): Promise<ChangeRequest | undefined>;
   listChangeRequests(): Promise<ChangeRequest[]>;
+  getChangeRequestsByStatus(status: string): Promise<ChangeRequest[]>;
+  getChangeRequestsForApproval(approverId: number): Promise<ChangeRequest[]>;
+  getChangeRequestsRequiredTechnicalApproval(): Promise<ChangeRequest[]>;
+  getChangeRequestsRequiredSecurityApproval(): Promise<ChangeRequest[]>;
+  getChangeRequestsForImplementation(implementerId?: number): Promise<ChangeRequest[]>;
   
   // Task management
   createTask(task: InsertTask): Promise<Task>;
@@ -89,6 +106,7 @@ export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private complianceFrameworks: Map<number, ComplianceFramework>;
   private complianceControls: Map<number, ComplianceControl>;
+  private pciDssControlsData: Map<number, PciDssControl>;
   private evidenceItems: Map<number, Evidence>;
   private siteData: Map<number, Site>;
   private deviceData: Map<number, Device>;
@@ -100,6 +118,7 @@ export class MemStorage implements IStorage {
   private userIdCounter: number;
   private frameworkIdCounter: number;
   private controlIdCounter: number;
+  private pciDssControlIdCounter: number;
   private evidenceIdCounter: number;
   private siteIdCounter: number;
   private deviceIdCounter: number;
