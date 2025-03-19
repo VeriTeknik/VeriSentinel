@@ -545,17 +545,13 @@ export default function NetworkTopology() {
                       const deviceY = y + 60; // Start from top of site box
                       
                       // Render the device and its children recursively using our helper function
-                      return (
-                        <React.Fragment key={`device-hierarchy-${device.id}`}>
-                          {renderDeviceHierarchy(
-                            device, 
-                            deviceX, 
-                            deviceY, 
-                            0, 
-                            width - 40,
-                            handleDeviceClick
-                          )}
-                        </React.Fragment>
+                      return renderDeviceHierarchy(
+                        device, 
+                        deviceX, 
+                        deviceY, 
+                        0, 
+                        width - 40,
+                        handleDeviceClick
                       );
                     })}
 
