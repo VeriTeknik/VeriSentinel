@@ -21,6 +21,8 @@ interface DeviceDetails {
   id: number;
   name: string;
   type: string;
+  deviceRole: string | null;
+  parentDeviceId: number | null;
   ipAddress: string | null;
   vlan: string | null;
   operatingSystem: string | null;
@@ -28,6 +30,8 @@ interface DeviceDetails {
   status: string;
   siteId: number;
   siteName?: string;
+  parentDevice?: Device;
+  childDevices?: Device[];
 }
 
 export default function NetworkTopology() {

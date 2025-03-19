@@ -208,7 +208,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/devices", isAuthenticated, async (req, res) => {
     try {
       const siteId = req.query.siteId ? parseInt(req.query.siteId as string) : undefined;
-      const devices = await storage.listDevices(siteId);
+      const parentId = req.query.parentId ? parseInt(req.query.parentId as string) : undefined;
+      const topLevelOnly = req.query.topLevelOnly === 'true';
+      
+      // Get devices based on the query parameters
+      let devices;
+      if (parentId) {
+        // Get children of a specific device
+        devices = await storage.listDeviceChildren(parentId);
+      } else if (siteId && topLevelOnly) {
+        // Get only top-level devices for a site
+        devices = await storage.listTopLevelDevices(siteId);
+      } else {
+        // Get all devices, optionally filtered by site
+        devices = await storage.listDevices(siteId);
+      }
+      
       res.json(devices);
     } catch (error) {
       res.status(500).json({ message: "Failed to retrieve devices" });
@@ -237,16 +252,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Network Topology API (special endpoint that combines sites and devices data)
+  // Network Topology API (special endpoint that combines sites and devices data with hierarchical structure)
   app.get("/api/topology", isAuthenticated, async (req, res) => {
     try {
       const sites = await storage.listSites();
-      const devices = await storage.listDevices();
+      const allDevices = await storage.listDevices();
       
-      // Create a topology map with sites and their devices
-      const topology = sites.map(site => ({
-        ...site,
-        devices: devices.filter(device => device.siteId === site.id)
+      // Create a topology map with sites and their top-level devices
+      const topology = await Promise.all(sites.map(async site => {
+        // Get the top-level devices for this site
+        const topLevelDevices = await storage.listTopLevelDevices(site.id);
+        
+        // For each top-level device, find its children recursively
+        const processedDevices = await Promise.all(
+          topLevelDevices.map(async device => {
+            const childDevices = await storage.listDeviceChildren(device.id);
+            return {
+              ...device,
+              children: childDevices
+            };
+          })
+        );
+        
+        return {
+          ...site,
+          devices: processedDevices
+        };
       }));
       
       res.json(topology);

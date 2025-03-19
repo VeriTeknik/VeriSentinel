@@ -17,7 +17,7 @@ import type {
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, isNull } from "drizzle-orm";
 import { neon } from "@neondatabase/serverless";
 import connectPg from "connect-pg-simple";
 import pg from "pg";
