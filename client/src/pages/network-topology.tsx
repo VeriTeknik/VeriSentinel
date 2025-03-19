@@ -14,7 +14,11 @@ interface TopologyNode {
   id: number;
   name: string;
   type: string;
-  devices?: Device[];
+  devices?: DeviceNode[];
+}
+
+interface DeviceNode extends Device {
+  children?: DeviceNode[];
 }
 
 interface DeviceDetails {
