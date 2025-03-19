@@ -23,18 +23,19 @@ export function NetworkTopology() {
   const { data: topology, isLoading } = useQuery<TopologyNode[]>({ 
     queryKey: ['/api/topology'] 
   });
+  
+  const { data: devices, isLoading: isLoadingDevices } = useQuery<DeviceNode[]>({
+    queryKey: ['/api/devices']
+  });
 
   const svgRef = useRef<SVGSVGElement>(null);
-
-  // Simple network topology visualization
-  // In a real implementation, this would use D3.js for more interactive visualization
   
-  const handleNodeClick = (nodeId: number) => {
-    console.log(`Node clicked: ${nodeId}`);
-    // Here you would handle node click to show details, etc.
+  const handleNodeClick = (device: DeviceNode) => {
+    console.log(`Device clicked:`, device);
+    // In full implementation, show device details in a modal/drawer
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingDevices) {
     return (
       <div className="bg-white shadow-sm rounded-lg p-8 text-center animate-pulse">
         <div className="h-6 bg-gray-200 rounded w-1/3 mx-auto mb-4"></div>
@@ -42,6 +43,14 @@ export function NetworkTopology() {
       </div>
     );
   }
+  
+  // Get network devices (firewall, switch, router types)
+  const networkDevices = devices?.filter(d => 
+    d.type === 'firewall' || d.type === 'switch' || d.type === 'router'
+  ) || [];
+  
+  // Get server devices
+  const serverDevices = devices?.filter(d => d.type === 'server') || [];
 
   return (
     <div className="bg-white shadow-sm rounded-lg">
@@ -68,65 +77,162 @@ export function NetworkTopology() {
             <ellipse cx="400" cy="50" rx="120" ry="40" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="2" className="device-node" />
             <text x="400" y="55" textAnchor="middle" className="text-sm font-medium">Internet</text>
             
-            {/* Firewall */}
-            <rect x="370" y="100" width="60" height="40" rx="5" fill="#FEF3C7" stroke="#FF832B" strokeWidth="2" className="device-node" onClick={() => handleNodeClick(1)} />
-            <text x="400" y="124" textAnchor="middle" className="text-xs font-medium">Firewall</text>
+            {/* Dynamic Network Devices */}
+            {networkDevices.slice(0, 5).map((device, index) => {
+              // Calculate positions based on index
+              let x = 370;
+              let y = 100 + (index * 70);
+              
+              if (index > 0) {
+                // Offset switches to show network structure
+                if (index === 1) {
+                  x = 370; // Router in center
+                  y = 170;
+                } else if (index === 2) {
+                  x = 250; // Left switch
+                  y = 240;
+                } else if (index === 3) {
+                  x = 370; // Middle switch
+                  y = 240; 
+                } else if (index === 4) {
+                  x = 490; // Right switch
+                  y = 240;
+                }
+              }
+              
+              // Determine color based on device type
+              let fill = "#FEF3C7"; // Default - orange for firewall
+              let stroke = "#FF832B";
+              
+              if (device.type === "router") {
+                fill = "#D1FAE5"; // Green for router
+                stroke = "#42BE65";
+              } else if (device.type === "switch") {
+                fill = "#E0E7FF"; // Blue for switch
+                stroke = "#6366F1";
+              }
+              
+              return (
+                <g key={`network-${device.id}`}>
+                  <rect 
+                    x={x} 
+                    y={y} 
+                    width={60} 
+                    height={40} 
+                    rx={5} 
+                    fill={fill} 
+                    stroke={stroke} 
+                    strokeWidth={2} 
+                    className="device-node" 
+                    onClick={() => handleNodeClick(device)} 
+                  />
+                  <text 
+                    x={x + 30} 
+                    y={y + 24} 
+                    textAnchor="middle" 
+                    className="text-xs font-medium"
+                  >
+                    {device.name.length > 10 ? device.name.substring(0, 8) + '...' : device.name}
+                  </text>
+                </g>
+              );
+            })}
             
-            {/* Lines from Internet to Firewall */}
+            {/* Lines for connections */}
             <line x1="400" y1="70" x2="400" y2="100" stroke="#9CA3AF" strokeWidth="2" />
-            
-            {/* Router */}
-            <rect x="370" y="170" width="60" height="40" rx="5" fill="#D1FAE5" stroke="#42BE65" strokeWidth="2" className="device-node" onClick={() => handleNodeClick(2)} />
-            <text x="400" y="194" textAnchor="middle" className="text-xs font-medium">Router</text>
-            
-            {/* Line from Firewall to Router */}
             <line x1="400" y1="140" x2="400" y2="170" stroke="#9CA3AF" strokeWidth="2" />
-            
-            {/* Switch 1 */}
-            <rect x="250" y="240" width="60" height="40" rx="5" fill="#E0E7FF" stroke="#6366F1" strokeWidth="2" className="device-node" onClick={() => handleNodeClick(3)} />
-            <text x="280" y="264" textAnchor="middle" className="text-xs font-medium">Switch 1</text>
-            
-            {/* Switch 2 */}
-            <rect x="370" y="240" width="60" height="40" rx="5" fill="#E0E7FF" stroke="#6366F1" strokeWidth="2" className="device-node" onClick={() => handleNodeClick(4)} />
-            <text x="400" y="264" textAnchor="middle" className="text-xs font-medium">Switch 2</text>
-            
-            {/* Switch 3 */}
-            <rect x="490" y="240" width="60" height="40" rx="5" fill="#E0E7FF" stroke="#6366F1" strokeWidth="2" className="device-node" onClick={() => handleNodeClick(5)} />
-            <text x="520" y="264" textAnchor="middle" className="text-xs font-medium">Switch 3</text>
-            
-            {/* Lines from Router to Switches */}
             <line x1="400" y1="210" x2="280" y2="240" stroke="#9CA3AF" strokeWidth="2" />
             <line x1="400" y1="210" x2="400" y2="240" stroke="#9CA3AF" strokeWidth="2" />
             <line x1="400" y1="210" x2="520" y2="240" stroke="#9CA3AF" strokeWidth="2" />
             
-            {/* Servers */}
-            <rect x="220" y="320" width="50" height="40" rx="5" fill="#FEE2E2" stroke="#FF0000" strokeWidth="2" className="device-node" onClick={() => handleNodeClick(6)} />
-            <text x="245" y="344" textAnchor="middle" className="text-xs font-medium">DB</text>
+            {/* Dynamic Server Devices */}
+            {serverDevices.slice(0, 5).map((device, index) => {
+              // Calculate positions based on index
+              let x = 220 + (index * 85);
+              if (index > 2) {
+                x = 490 + ((index - 3) * 60); // Adjust for right side
+              }
+              const y = 320;
+              
+              // Determine color based on server type or status
+              let fill = "#CCE0FF"; // Default blue for servers
+              let stroke = "#0F62FE";
+              
+              if (device.status === "critical" || device.status === "down") {
+                fill = "#FEE2E2"; // Red for critical servers
+                stroke = "#FF0000";
+              } else if (device.status === "warning") {
+                fill = "#FEF3C7"; // Orange for warning
+                stroke = "#FF832B";
+              } else if (device.status === "secure" || device.status === "compliant") {
+                fill = "#D1FAE5"; // Green for compliant/secure
+                stroke = "#42BE65";
+              }
+              
+              return (
+                <g key={`server-${device.id}`}>
+                  <rect 
+                    x={x} 
+                    y={y} 
+                    width={50} 
+                    height={40} 
+                    rx={5} 
+                    fill={fill} 
+                    stroke={stroke} 
+                    strokeWidth={2} 
+                    className="device-node" 
+                    onClick={() => handleNodeClick(device)} 
+                  />
+                  <text 
+                    x={x + 25} 
+                    y={y + 24} 
+                    textAnchor="middle" 
+                    className="text-xs font-medium"
+                  >
+                    {device.name.length > 6 ? device.name.substring(0, 4) + '...' : device.name}
+                  </text>
+                  
+                  {/* Add risk indicator for critical/warning status */}
+                  {(device.status === "critical" || device.status === "down") && (
+                    <circle cx={x + 25} cy={y - 5} r={10} fill="#FF0000" className="animate-pulse" opacity={0.6} />
+                  )}
+                  {device.status === "warning" && (
+                    <circle cx={x + 25} cy={y - 5} r={8} fill="#FF832B" className="animate-pulse" opacity={0.6} />
+                  )}
+                </g>
+              );
+            })}
             
-            <rect x="280" y="320" width="50" height="40" rx="5" fill="#CCE0FF" stroke="#0F62FE" strokeWidth="2" className="device-node" onClick={() => handleNodeClick(7)} />
-            <text x="305" y="344" textAnchor="middle" className="text-xs font-medium">Web</text>
-            
-            <rect x="375" y="320" width="50" height="40" rx="5" fill="#CCE0FF" stroke="#0F62FE" strokeWidth="2" className="device-node" onClick={() => handleNodeClick(8)} />
-            <text x="400" y="344" textAnchor="middle" className="text-xs font-medium">App</text>
-            
-            <rect x="490" y="320" width="50" height="40" rx="5" fill="#FEF3C7" stroke="#FF832B" strokeWidth="2" className="device-node" onClick={() => handleNodeClick(9)} />
-            <text x="515" y="344" textAnchor="middle" className="text-xs font-medium">Auth</text>
-            
-            <rect x="550" y="320" width="50" height="40" rx="5" fill="#D1FAE5" stroke="#42BE65" strokeWidth="2" className="device-node" onClick={() => handleNodeClick(10)} />
-            <text x="575" y="344" textAnchor="middle" className="text-xs font-medium">Log</text>
-            
-            {/* Lines from Switches to Servers */}
-            <line x1="280" y1="280" x2="245" y2="320" stroke="#9CA3AF" strokeWidth="2" />
-            <line x1="280" y1="280" x2="305" y2="320" stroke="#9CA3AF" strokeWidth="2" />
-            
-            <line x1="400" y1="280" x2="400" y2="320" stroke="#9CA3AF" strokeWidth="2" />
-            
-            <line x1="520" y1="280" x2="515" y2="320" stroke="#9CA3AF" strokeWidth="2" />
-            <line x1="520" y1="280" x2="575" y2="320" stroke="#9CA3AF" strokeWidth="2" />
-            
-            {/* Risk Indicators */}
-            <circle cx="245" cy="315" r="10" fill="#FF0000" className="animate-pulse" opacity="0.6" />
-            <circle cx="515" cy="315" r="8" fill="#FF832B" className="animate-pulse" opacity="0.6" />
+            {/* Lines from Switches to Servers - Dynamic based on device positions */}
+            {/* Each server gets a connection line to nearest switch for visualization */}
+            {serverDevices.slice(0, 5).map((device, index) => {
+              let serverX = 220 + (index * 85);
+              if (index > 2) {
+                serverX = 490 + ((index - 3) * 60);
+              }
+              const serverY = 320;
+              
+              // Determine which switch to connect to based on position
+              let switchX = 280; // Default to left switch
+              
+              if (index === 2) {
+                switchX = 400; // Middle server connects to middle switch
+              } else if (index >= 3) {
+                switchX = 520; // Right servers connect to right switch
+              }
+              
+              return (
+                <line 
+                  key={`line-${device.id}`} 
+                  x1={switchX} 
+                  y1={280} 
+                  x2={serverX + 25} 
+                  y2={320} 
+                  stroke="#9CA3AF" 
+                  strokeWidth={2} 
+                />
+              );
+            })}
           </svg>
           
           {/* Legend */}
