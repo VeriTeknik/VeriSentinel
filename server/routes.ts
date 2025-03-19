@@ -269,7 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertChangeRequestSchema.parse({
         ...req.body,
-        requesterId: req.user!.id
+        requestedBy: req.user!.id
       });
       
       const changeRequest = await storage.createChangeRequest(validatedData);
@@ -279,7 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "create_change_request",
         "change_request",
         changeRequest.id.toString(),
-        `Created change request of type: ${changeRequest.type}`
+        `Created change request: ${changeRequest.title}`
       );
       
       res.status(201).json(changeRequest);

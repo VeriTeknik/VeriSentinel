@@ -260,7 +260,7 @@ export default function ChangeManagement() {
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Title</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Requester</TableHead>
                 <TableHead>Date</TableHead>
