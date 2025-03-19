@@ -9,7 +9,7 @@ import Dashboard from "@/pages/dashboard";
 import AuthPage from "@/pages/auth-page";
 import Compliance from "@/pages/compliance";
 import HardwareInventory from "@/pages/hardware-inventory";
-import NetworkTopology from "@/pages/network-topology";
+import NetworkTopologyWrapper from "@/pages/network-topology-wrapper";
 import ChangeManagement from "@/pages/change-management";
 import Tasks from "@/pages/tasks";
 import UserManagement from "@/pages/user-management";
@@ -22,7 +22,7 @@ function Router() {
       <ProtectedRoute path="/" component={Dashboard} />
       <ProtectedRoute path="/compliance" component={Compliance} />
       <ProtectedRoute path="/hardware-inventory" component={HardwareInventory} />
-      <ProtectedRoute path="/network-topology" component={NetworkTopology} />
+      <ProtectedRoute path="/network-topology" component={NetworkTopologyWrapper} />
       <ProtectedRoute path="/change-management" component={ChangeManagement} />
       <ProtectedRoute path="/tasks" component={Tasks} />
       <ProtectedRoute path="/user-management" component={UserManagement} />
