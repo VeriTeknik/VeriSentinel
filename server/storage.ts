@@ -154,7 +154,12 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
-    const user: User = { ...insertUser, id };
+    const user: User = { 
+      ...insertUser, 
+      id, 
+      role: insertUser.role || 'user',
+      avatar: null 
+    };
     this.users.set(id, user);
     return user;
   }
@@ -166,7 +171,11 @@ export class MemStorage implements IStorage {
   // Compliance framework management
   async createComplianceFramework(framework: InsertComplianceFramework): Promise<ComplianceFramework> {
     const id = this.frameworkIdCounter++;
-    const newFramework: ComplianceFramework = { ...framework, id };
+    const newFramework: ComplianceFramework = { 
+      ...framework, 
+      id, 
+      description: framework.description || null 
+    };
     this.complianceFrameworks.set(id, newFramework);
     return newFramework;
   }
@@ -185,7 +194,10 @@ export class MemStorage implements IStorage {
     const newControl: ComplianceControl = { 
       ...control, 
       id, 
-      lastChecked: control.lastChecked || null
+      description: control.description || null,
+      dueDate: control.dueDate || null,
+      assignedTo: control.assignedTo || null,
+      lastChecked: null
     };
     this.complianceControls.set(id, newControl);
     return newControl;
@@ -218,6 +230,8 @@ export class MemStorage implements IStorage {
     const newEvidence: Evidence = { 
       ...evidenceItem, 
       id, 
+      description: evidenceItem.description || null,
+      filePath: evidenceItem.filePath || null,
       uploadedAt: new Date() 
     };
     this.evidenceItems.set(id, newEvidence);
