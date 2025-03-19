@@ -19,7 +19,7 @@ import type {
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { eq, desc, and, isNull } from "drizzle-orm";
+import { eq, desc, and, isNull, or } from "drizzle-orm";
 import { neon } from "@neondatabase/serverless";
 import connectPg from "connect-pg-simple";
 import pg from "pg";
@@ -135,6 +135,7 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.complianceFrameworks = new Map();
     this.complianceControls = new Map();
+    this.pciDssControlsData = new Map();
     this.evidenceItems = new Map();
     this.siteData = new Map();
     this.deviceData = new Map();
@@ -146,6 +147,7 @@ export class MemStorage implements IStorage {
     this.userIdCounter = 1;
     this.frameworkIdCounter = 1;
     this.controlIdCounter = 1;
+    this.pciDssControlIdCounter = 1;
     this.evidenceIdCounter = 1;
     this.siteIdCounter = 1;
     this.deviceIdCounter = 1;
@@ -154,7 +156,7 @@ export class MemStorage implements IStorage {
     this.sprintIdCounter = 1;
     this.auditLogIdCounter = 1;
     
-    // Initialize with sample data (uncomment if needed)
+    // Initialize with sample data
     this.initializeData();
   }
 
@@ -179,7 +181,14 @@ export class MemStorage implements IStorage {
       ...insertUser, 
       id, 
       role: insertUser.role || 'user',
-      avatar: null 
+      department: insertUser.department || null,
+      isApprover: insertUser.isApprover || false,
+      isRequester: insertUser.isRequester || false,
+      approvalLevel: insertUser.approvalLevel || 0,
+      pciResponsibilities: insertUser.pciResponsibilities || [],
+      avatar: null,
+      lastLogin: null,
+      isActive: true
     };
     this.users.set(id, user);
     return user;
@@ -187,6 +196,16 @@ export class MemStorage implements IStorage {
 
   async listUsers(): Promise<User[]> {
     return Array.from(this.users.values());
+  }
+  
+  async getUsersByRole(role: string): Promise<User[]> {
+    return Array.from(this.users.values())
+      .filter(user => user.role === role);
+  }
+  
+  async getUsersWithApprovalRights(): Promise<User[]> {
+    return Array.from(this.users.values())
+      .filter(user => user.isApprover === true);
   }
   
   // Compliance framework management
@@ -243,6 +262,57 @@ export class MemStorage implements IStorage {
       return controls.filter(control => control.frameworkId === frameworkId);
     }
     return controls;
+  }
+  
+  // PCI-DSS specific controls and RACI management
+  async createPciDssControl(control: InsertPciDssControl): Promise<PciDssControl> {
+    const id = this.pciDssControlIdCounter++;
+    const newControl: PciDssControl = { 
+      ...control, 
+      id, 
+      description: control.description || null,
+      guidance: control.guidance || null,
+      responsibleRoleId: control.responsibleRoleId || null,
+      accountableRoleId: control.accountableRoleId || null,
+      consultedRoleIds: control.consultedRoleIds || [],
+      informedRoleIds: control.informedRoleIds || [],
+      status: "not_assessed",
+      lastAssessedAt: null,
+      nextAssessmentDue: null
+    };
+    this.pciDssControlsData.set(id, newControl);
+    return newControl;
+  }
+  
+  async getPciDssControl(id: number): Promise<PciDssControl | undefined> {
+    return this.pciDssControlsData.get(id);
+  }
+  
+  async updatePciDssControl(id: number, control: Partial<InsertPciDssControl>): Promise<PciDssControl | undefined> {
+    const existingControl = this.pciDssControlsData.get(id);
+    if (!existingControl) return undefined;
+    
+    const updatedControl = { ...existingControl, ...control };
+    this.pciDssControlsData.set(id, updatedControl);
+    return updatedControl;
+  }
+  
+  async listPciDssControls(section?: string): Promise<PciDssControl[]> {
+    const controls = Array.from(this.pciDssControlsData.values());
+    if (section !== undefined) {
+      return controls.filter(control => control.section === section);
+    }
+    return controls;
+  }
+  
+  async getPciDssControlsByRole(roleId: number): Promise<PciDssControl[]> {
+    return Array.from(this.pciDssControlsData.values())
+      .filter(control => 
+        control.responsibleRoleId === roleId || 
+        control.accountableRoleId === roleId ||
+        (control.consultedRoleIds && control.consultedRoleIds.includes(roleId.toString())) ||
+        (control.informedRoleIds && control.informedRoleIds.includes(roleId.toString()))
+      );
   }
   
   // Evidence management
@@ -332,18 +402,49 @@ export class MemStorage implements IStorage {
       .filter(device => device.siteId === siteId && device.parentDeviceId === null);
   }
   
+  async updateDevice(id: number, device: Partial<InsertDevice>): Promise<Device | undefined> {
+    const existingDevice = this.deviceData.get(id);
+    if (!existingDevice) return undefined;
+    
+    const updatedDevice = { ...existingDevice, ...device };
+    this.deviceData.set(id, updatedDevice);
+    return updatedDevice;
+  }
+  
   // Change request management
   async createChangeRequest(changeRequest: InsertChangeRequest): Promise<ChangeRequest> {
     const id = this.changeRequestIdCounter++;
     const newChangeRequest: ChangeRequest = { 
       ...changeRequest, 
       id, 
-      status: 'pending',
-      approverId: null,
-      implementerId: null,
+      status: 'draft',
+      riskLevel: changeRequest.riskLevel || 'medium',
+      assignedTo: null,
+      
+      // RACI approval fields
+      technicalApprovalStatus: 'pending',
+      technicalApproverId: null,
+      technicalApprovedAt: null,
+      
+      securityApprovalStatus: 'pending',
+      securityApproverId: null,
+      securityApprovedAt: null,
+      
+      businessApprovalStatus: 'pending',
+      businessApproverId: null,
+      businessApprovedAt: null,
+      
+      // Dates
       requestedAt: new Date(),
-      approvedAt: null,
-      implementedAt: null
+      scheduledFor: changeRequest.scheduledFor || null,
+      implementedAt: null,
+      closedAt: null,
+      
+      // Additional tracking
+      affectedSystems: changeRequest.affectedSystems || null,
+      backoutPlan: changeRequest.backoutPlan || null,
+      relatedControlIds: changeRequest.relatedControlIds || [],
+      comments: null
     };
     this.changeRequestData.set(id, newChangeRequest);
     return newChangeRequest;
@@ -364,6 +465,53 @@ export class MemStorage implements IStorage {
 
   async listChangeRequests(): Promise<ChangeRequest[]> {
     return Array.from(this.changeRequestData.values());
+  }
+  
+  async getChangeRequestsByStatus(status: string): Promise<ChangeRequest[]> {
+    return Array.from(this.changeRequestData.values())
+      .filter(request => request.status === status);
+  }
+  
+  async getChangeRequestsForApproval(approverId: number): Promise<ChangeRequest[]> {
+    return Array.from(this.changeRequestData.values())
+      .filter(request => 
+        (request.status === 'pending_approval') && 
+        (
+          // Technical approvers
+          (request.technicalApprovalStatus === 'pending' && request.technicalApproverId === approverId) ||
+          // Security approvers
+          (request.securityApprovalStatus === 'pending' && request.securityApproverId === approverId) ||
+          // Business approvers
+          (request.businessApprovalStatus === 'pending' && request.businessApproverId === approverId)
+        )
+      );
+  }
+  
+  async getChangeRequestsRequiredTechnicalApproval(): Promise<ChangeRequest[]> {
+    return Array.from(this.changeRequestData.values())
+      .filter(request => 
+        request.status === 'pending_approval' && 
+        request.technicalApprovalStatus === 'pending'
+      );
+  }
+  
+  async getChangeRequestsRequiredSecurityApproval(): Promise<ChangeRequest[]> {
+    return Array.from(this.changeRequestData.values())
+      .filter(request => 
+        request.status === 'pending_approval' && 
+        request.securityApprovalStatus === 'pending'
+      );
+  }
+  
+  async getChangeRequestsForImplementation(implementerId?: number): Promise<ChangeRequest[]> {
+    const requests = Array.from(this.changeRequestData.values())
+      .filter(request => request.status === 'approved');
+    
+    if (implementerId !== undefined) {
+      return requests.filter(request => request.assignedTo === implementerId);
+    }
+    
+    return requests;
   }
   
   // Task management
@@ -475,6 +623,18 @@ export class PostgresStorage implements IStorage {
   async listUsers(): Promise<User[]> {
     return await db.select().from(users);
   }
+  
+  async getUsersByRole(role: string): Promise<User[]> {
+    return await db.select()
+      .from(users)
+      .where(eq(users.role, role));
+  }
+  
+  async getUsersWithApprovalRights(): Promise<User[]> {
+    return await db.select()
+      .from(users)
+      .where(eq(users.isApprover, true));
+  }
 
   // Compliance framework management
   async createComplianceFramework(framework: InsertComplianceFramework): Promise<ComplianceFramework> {
@@ -515,6 +675,56 @@ export class PostgresStorage implements IStorage {
       return await db.select().from(complianceControls).where(eq(complianceControls.frameworkId, frameworkId));
     }
     return await db.select().from(complianceControls);
+  }
+  
+  // PCI-DSS specific controls and RACI management
+  async createPciDssControl(control: InsertPciDssControl): Promise<PciDssControl> {
+    const controlWithDefaults = {
+      ...control,
+      status: "not_assessed",
+      lastAssessedAt: null,
+      nextAssessmentDue: null,
+      description: control.description || null,
+      guidance: control.guidance || null,
+      responsibleRoleId: control.responsibleRoleId || null,
+      accountableRoleId: control.accountableRoleId || null,
+      consultedRoleIds: control.consultedRoleIds || [],
+      informedRoleIds: control.informedRoleIds || []
+    };
+    const result = await db.insert(pciDssControls).values(controlWithDefaults).returning();
+    return result[0];
+  }
+  
+  async getPciDssControl(id: number): Promise<PciDssControl | undefined> {
+    const result = await db.select().from(pciDssControls).where(eq(pciDssControls.id, id));
+    return result[0];
+  }
+  
+  async updatePciDssControl(id: number, control: Partial<InsertPciDssControl>): Promise<PciDssControl | undefined> {
+    const result = await db.update(pciDssControls)
+      .set(control)
+      .where(eq(pciDssControls.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async listPciDssControls(section?: string): Promise<PciDssControl[]> {
+    if (section !== undefined) {
+      return await db.select().from(pciDssControls).where(eq(pciDssControls.section, section));
+    }
+    return await db.select().from(pciDssControls);
+  }
+  
+  async getPciDssControlsByRole(roleId: number): Promise<PciDssControl[]> {
+    return await db.select().from(pciDssControls).where(
+      or(
+        eq(pciDssControls.responsibleRoleId, roleId),
+        eq(pciDssControls.accountableRoleId, roleId)
+        // Note: For consultedRoleIds and informedRoleIds we would need more complex filtering
+        // as these are array fields. This would require SQL-specific array operations
+        // which may vary based on the database being used.
+      )
+    );
   }
 
   // Evidence management
@@ -604,6 +814,76 @@ export class PostgresStorage implements IStorage {
 
   async listChangeRequests(): Promise<ChangeRequest[]> {
     return await db.select().from(changeRequests);
+  }
+
+  async getChangeRequestsByStatus(status: string): Promise<ChangeRequest[]> {
+    return await db.select()
+      .from(changeRequests)
+      .where(eq(changeRequests.status, status));
+  }
+  
+  async getChangeRequestsForApproval(approverId: number): Promise<ChangeRequest[]> {
+    // This is a more complex query where we need to check all approval roles
+    return await db.select()
+      .from(changeRequests)
+      .where(
+        and(
+          eq(changeRequests.status, 'pending_approval'),
+          or(
+            and(
+              eq(changeRequests.technicalApprovalStatus, 'pending'),
+              eq(changeRequests.technicalApproverId, approverId)
+            ),
+            and(
+              eq(changeRequests.securityApprovalStatus, 'pending'),
+              eq(changeRequests.securityApproverId, approverId)
+            ),
+            and(
+              eq(changeRequests.businessApprovalStatus, 'pending'),
+              eq(changeRequests.businessApproverId, approverId)
+            )
+          )
+        )
+      );
+  }
+  
+  async getChangeRequestsRequiredTechnicalApproval(): Promise<ChangeRequest[]> {
+    return await db.select()
+      .from(changeRequests)
+      .where(
+        and(
+          eq(changeRequests.status, 'pending_approval'),
+          eq(changeRequests.technicalApprovalStatus, 'pending')
+        )
+      );
+  }
+  
+  async getChangeRequestsRequiredSecurityApproval(): Promise<ChangeRequest[]> {
+    return await db.select()
+      .from(changeRequests)
+      .where(
+        and(
+          eq(changeRequests.status, 'pending_approval'),
+          eq(changeRequests.securityApprovalStatus, 'pending')
+        )
+      );
+  }
+  
+  async getChangeRequestsForImplementation(implementerId?: number): Promise<ChangeRequest[]> {
+    if (implementerId !== undefined) {
+      return await db.select()
+        .from(changeRequests)
+        .where(
+          and(
+            eq(changeRequests.status, 'approved'),
+            eq(changeRequests.assignedTo, implementerId)
+          )
+        );
+    }
+    
+    return await db.select()
+      .from(changeRequests)
+      .where(eq(changeRequests.status, 'approved'));
   }
 
   // Task management
