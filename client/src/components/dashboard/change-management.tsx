@@ -69,7 +69,7 @@ export function ChangeManagement() {
             <thead className="bg-gray-50">
               <tr>
                 <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
                 <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requester</th>
                 <th scope="col" className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
@@ -84,7 +84,7 @@ export function ChangeManagement() {
                       CR-{request.id.toString().padStart(4, '0')}
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {request.type.charAt(0).toUpperCase() + request.type.slice(1)}
+                      {request.title}
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(request.status)} font-medium`}>
@@ -92,7 +92,7 @@ export function ChangeManagement() {
                       </span>
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-500">
-                      User {request.requesterId}
+                      User {request.requestedBy}
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(request.requestedAt).toLocaleDateString('en-US', {
