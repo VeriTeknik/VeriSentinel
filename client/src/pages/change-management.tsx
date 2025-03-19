@@ -37,15 +37,15 @@ export default function ChangeManagement() {
 
   // Create change request form schema
   const requestFormSchema = z.object({
-    type: z.string().min(1, "Type is required"),
-    details: z.string().min(1, "Details are required"),
+    title: z.string().min(1, "Title is required"),
+    description: z.string().min(1, "Description is required"),
   });
 
   const form = useForm<z.infer<typeof requestFormSchema>>({
     resolver: zodResolver(requestFormSchema),
     defaultValues: {
-      type: "firewall",
-      details: "",
+      title: "Firewall Rule Change",
+      description: "",
     },
   });
 
@@ -193,22 +193,16 @@ export default function ChangeManagement() {
                 <form onSubmit={form.handleSubmit(handleCreateRequest)} className="space-y-6">
                   <FormField
                     control={form.control}
-                    name="type"
+                    name="title"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Request Type</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select request type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="firewall">Firewall Change</SelectItem>
-                            <SelectItem value="server">Server Access</SelectItem>
-                            <SelectItem value="network">Network Change</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Request Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter request title" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Brief title describing the change request.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -216,10 +210,10 @@ export default function ChangeManagement() {
                   
                   <FormField
                     control={form.control}
-                    name="details"
+                    name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Details</FormLabel>
+                        <FormLabel>Description</FormLabel>
                         <FormControl>
                           <Textarea 
                             placeholder="Provide detailed information about the change request" 
@@ -279,10 +273,10 @@ export default function ChangeManagement() {
                   <TableRow key={request.id}>
                     <TableCell className="font-medium">CR-{request.id.toString().padStart(4, '0')}</TableCell>
                     <TableCell>
-                      {request.type.charAt(0).toUpperCase() + request.type.slice(1)} Change
+                      {request.title}
                     </TableCell>
                     <TableCell>{getStatusBadge(request.status)}</TableCell>
-                    <TableCell>User {request.requesterId}</TableCell>
+                    <TableCell>User {request.requestedBy}</TableCell>
                     <TableCell>
                       {new Date(request.requestedAt).toLocaleDateString('en-US', {
                         month: 'short',
@@ -328,8 +322,8 @@ export default function ChangeManagement() {
                   <p className="text-base">CR-{selectedRequest.id.toString().padStart(4, '0')}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Type</h3>
-                  <p className="text-base capitalize">{selectedRequest.type} Change</p>
+                  <h3 className="text-sm font-medium text-gray-500">Title</h3>
+                  <p className="text-base">{selectedRequest.title}</p>
                 </div>
               </div>
               
@@ -340,7 +334,7 @@ export default function ChangeManagement() {
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Requested By</h3>
-                  <p className="text-base">User {selectedRequest.requesterId}</p>
+                  <p className="text-base">User {selectedRequest.requestedBy}</p>
                 </div>
               </div>
               
@@ -391,9 +385,9 @@ export default function ChangeManagement() {
               )}
               
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Details</h3>
+                <h3 className="text-sm font-medium text-gray-500">Description</h3>
                 <div className="mt-1 p-4 bg-gray-50 rounded-md border border-gray-200">
-                  <p className="text-sm whitespace-pre-wrap">{selectedRequest.details}</p>
+                  <p className="text-sm whitespace-pre-wrap">{selectedRequest.description}</p>
                 </div>
               </div>
               
