@@ -250,7 +250,13 @@ export class MemStorage implements IStorage {
   // Site management
   async createSite(site: InsertSite): Promise<Site> {
     const id = this.siteIdCounter++;
-    const newSite: Site = { ...site, id };
+    const newSite: Site = { 
+      id, 
+      name: site.name,
+      type: site.type,
+      location: site.location || null,
+      description: site.description || null
+    };
     this.siteData.set(id, newSite);
     return newSite;
   }
@@ -266,7 +272,17 @@ export class MemStorage implements IStorage {
   // Device management
   async createDevice(device: InsertDevice): Promise<Device> {
     const id = this.deviceIdCounter++;
-    const newDevice: Device = { ...device, id };
+    const newDevice: Device = { 
+      id,
+      siteId: device.siteId,
+      name: device.name,
+      type: device.type,
+      status: device.status,
+      ipAddress: device.ipAddress || null,
+      vlan: device.vlan || null,
+      operatingSystem: device.operatingSystem || null,
+      services: device.services || null
+    };
     this.deviceData.set(id, newDevice);
     return newDevice;
   }
@@ -320,7 +336,16 @@ export class MemStorage implements IStorage {
   // Task management
   async createTask(task: InsertTask): Promise<Task> {
     const id = this.taskIdCounter++;
-    const newTask: Task = { ...task, id };
+    const newTask: Task = { 
+      id,
+      title: task.title,
+      status: task.status,
+      description: task.description || null,
+      dueDate: task.dueDate || null,
+      assignedTo: task.assignedTo || null,
+      relatedControlId: task.relatedControlId || null,
+      sprintId: task.sprintId || null
+    };
     this.taskData.set(id, newTask);
     return newTask;
   }
@@ -366,8 +391,12 @@ export class MemStorage implements IStorage {
   async createAuditLog(auditLog: InsertAuditLog): Promise<AuditLog> {
     const id = this.auditLogIdCounter++;
     const newAuditLog: AuditLog = { 
-      ...auditLog, 
       id, 
+      action: auditLog.action,
+      userId: auditLog.userId,
+      resourceType: auditLog.resourceType,
+      resourceId: auditLog.resourceId,
+      details: auditLog.details || null,
       timestamp: new Date() 
     };
     this.auditLogData.set(id, newAuditLog);
