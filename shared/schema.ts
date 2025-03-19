@@ -116,10 +116,10 @@ export const insertDeviceSchema = createInsertSchema(devices).pick({
 // Change request model
 export const changeRequests = pgTable("change_requests", {
   id: serial("id").primaryKey(),
-  type: text("type").notNull(), // firewall, server, network
+  title: text("title").notNull(), // Replaces type
   status: text("status").notNull(), // pending, approved, rejected, implemented
-  details: text("details").notNull(),
-  requesterId: integer("requester_id").notNull(),
+  description: text("description").notNull(), // Replaces details
+  requestedBy: integer("requested_by").notNull(), // Replaces requesterId
   approverId: integer("approver_id"),
   implementerId: integer("implementer_id"),
   requestedAt: timestamp("requested_at").notNull().defaultNow(),
@@ -128,9 +128,9 @@ export const changeRequests = pgTable("change_requests", {
 });
 
 export const insertChangeRequestSchema = createInsertSchema(changeRequests).pick({
-  type: true,
-  details: true,
-  requesterId: true,
+  title: true, 
+  description: true,
+  requestedBy: true,
 });
 
 // Task model
