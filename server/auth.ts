@@ -95,8 +95,7 @@ export function setupAuth(app: Express) {
         if (err) return next(err);
         
         // Remove password from response
-        const userResponse = { ...user };
-        delete userResponse.password;
+        const { password, ...userResponse } = user;
         
         res.status(201).json(userResponse);
       });
@@ -115,13 +114,14 @@ export function setupAuth(app: Express) {
         resourceId: req.user.id.toString(),
         details: `User ${req.user.username} logged in`
       });
+      
+      // Remove password from response
+      const { password, ...userResponse } = req.user;
+      
+      res.status(200).json(userResponse);
+    } else {
+      res.status(401).json({ message: "Authentication failed" });
     }
-    
-    // Remove password from response
-    const userResponse = { ...req.user };
-    delete userResponse.password;
-    
-    res.status(200).json(userResponse);
   });
 
   app.post("/api/logout", (req, res, next) => {
@@ -146,8 +146,7 @@ export function setupAuth(app: Express) {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     // Remove password from response
-    const userResponse = { ...req.user };
-    delete userResponse.password;
+    const { password, ...userResponse } = req.user;
     
     res.json(userResponse);
   });

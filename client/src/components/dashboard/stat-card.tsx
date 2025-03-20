@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { Link } from 'wouter';
+import { ReactNode, useCallback } from 'react';
+import { useLocation } from 'wouter';
 
 interface StatCardProps {
   title: string;
@@ -18,6 +18,12 @@ export function StatCard({
   iconBgColor,
   iconColor,
 }: StatCardProps) {
+  const [, setLocation] = useLocation();
+  
+  const handleNavigation = useCallback(() => {
+    setLocation(linkUrl);
+  }, [linkUrl, setLocation]);
+  
   return (
     <div className="bg-white overflow-hidden shadow-sm rounded-lg">
       <div className="p-5">
@@ -37,9 +43,12 @@ export function StatCard({
       </div>
       <div className="bg-gray-50 px-5 py-3">
         <div className="text-sm">
-          <Link href={linkUrl}>
-            <a className="font-medium text-primary-600 hover:text-primary-700">View details</a>
-          </Link>
+          <button 
+            onClick={handleNavigation} 
+            className="font-medium text-primary-600 hover:text-primary-700 cursor-pointer bg-transparent border-none p-0"
+          >
+            View details
+          </button>
         </div>
       </div>
     </div>
