@@ -19,14 +19,13 @@ import type {
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { eq, desc, and, isNull, or, inArray } from "drizzle-orm";
-import { neon } from "@neondatabase/serverless";
-import connectPg from "connect-pg-simple";
 import pg from "pg";
+import connectPgSimple from "connect-pg-simple";
 
 const MemoryStore = createMemoryStore(session);
-const PostgresSessionStore = connectPg(session);
+const PostgresSessionStore = connectPgSimple(session);
 
 export interface IStorage {
   sessionStore: session.Store;
