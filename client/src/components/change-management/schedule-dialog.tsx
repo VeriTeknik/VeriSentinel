@@ -1,31 +1,11 @@
-import React from 'react';
-import { 
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
-} from '@/components/ui/dialog';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { 
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage 
-} from '@/components/ui/form';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
-import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
-
-const scheduleSchema = z.object({
-  scheduledFor: z.date({
-    required_error: "Implementation date is required",
-  }).min(new Date(), {
-    message: "Implementation date must be in the future",
-  }),
-  scheduledTime: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, {
-    message: "Time must be in 24-hour format (HH:MM)",
-  })
-});
+import { CalendarIcon, Clock } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ScheduleDialogProps {
   isOpen: boolean;
@@ -34,105 +14,122 @@ interface ScheduleDialogProps {
 }
 
 export function ScheduleDialog({ isOpen, onClose, onSchedule }: ScheduleDialogProps) {
-  const form = useForm<z.infer<typeof scheduleSchema>>({
-    resolver: zodResolver(scheduleSchema),
-    defaultValues: {
-      scheduledFor: new Date(Date.now() + 86400000), // Tomorrow
-      scheduledTime: '09:00'
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  
+  const [date, setDate] = useState<Date | undefined>(tomorrow);
+  const [hour, setHour] = useState<string>('12');
+  const [minute, setMinute] = useState<string>('00');
+  const [period, setPeriod] = useState<string>('PM');
+  
+  const handleSubmit = () => {
+    if (date) {
+      // Create a new date object with the selected date and time
+      const scheduledDate = new Date(date);
+      let hours = parseInt(hour);
+      
+      // Convert to 24-hour format for the date object
+      if (period === 'PM' && hours < 12) {
+        hours += 12;
+      } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+      }
+      
+      scheduledDate.setHours(hours, parseInt(minute), 0, 0);
+      onSchedule(scheduledDate.toISOString());
     }
-  });
-
-  const handleSubmit = (data: z.infer<typeof scheduleSchema>) => {
-    // Combine date and time for a complete ISO datetime string
-    const [hours, minutes] = data.scheduledTime.split(':');
-    const scheduledDateTime = new Date(data.scheduledFor);
-    scheduledDateTime.setHours(parseInt(hours), parseInt(minutes));
-    
-    onSchedule(scheduledDateTime.toISOString());
-    form.reset();
-    onClose();
   };
-
+  
+  const hours = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+  const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
+  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Schedule Change Implementation</DialogTitle>
+          <DialogTitle>Schedule Implementation</DialogTitle>
           <DialogDescription>
             Select a date and time when this change will be implemented.
           </DialogDescription>
         </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="scheduledFor"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Implementation Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) => date < new Date()}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="scheduledTime"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Implementation Time (24h format)</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="HH:MM" 
-                      {...field}
-                      pattern="[0-9]{2}:[0-9]{2}"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter>
-              <Button variant="outline" type="button" onClick={onClose} className="mt-4 sm:mt-0">
-                Cancel
-              </Button>
-              <Button type="submit">
-                Schedule
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+        
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">Date</h3>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? format(date, 'PPP') : <span>Select a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={setDate}
+                  initialFocus
+                  disabled={(date) => date < today}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">Time</h3>
+            <div className="flex space-x-2">
+              <div className="flex-1">
+                <Select value={hour} onValueChange={setHour}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Hour" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hours.map((h) => (
+                      <SelectItem key={h} value={h}>{h}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1">
+                <Select value={minute} onValueChange={setMinute}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Minute" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {minutes.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-24">
+                <Select value={period} onValueChange={setPeriod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="AM/PM" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AM">AM</SelectItem>
+                    <SelectItem value="PM">PM</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={!date}>
+            <Clock className="mr-2 h-4 w-4" />
+            Schedule
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

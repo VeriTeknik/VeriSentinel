@@ -1,19 +1,8 @@
-import React from 'react';
-import { 
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
-} from '@/components/ui/dialog';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { 
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage 
-} from '@/components/ui/form';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-
-const implementSchema = z.object({
-  implementationNotes: z.string().min(10, "Please provide implementation details (min 10 characters)")
-});
+import { FileCheck, CheckCircle } from 'lucide-react';
 
 interface ImplementDialogProps {
   isOpen: boolean;
@@ -22,59 +11,64 @@ interface ImplementDialogProps {
 }
 
 export function ImplementDialog({ isOpen, onClose, onImplement }: ImplementDialogProps) {
-  const form = useForm<z.infer<typeof implementSchema>>({
-    resolver: zodResolver(implementSchema),
-    defaultValues: {
-      implementationNotes: ''
-    }
-  });
-
-  const handleSubmit = (data: z.infer<typeof implementSchema>) => {
-    onImplement(data.implementationNotes);
-    form.reset();
-    onClose();
+  const [implementationNotes, setImplementationNotes] = useState<string>('');
+  
+  const handleSubmit = () => {
+    onImplement(implementationNotes);
   };
-
+  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Mark Change as Implemented</DialogTitle>
+          <DialogTitle>Mark as Implemented</DialogTitle>
           <DialogDescription>
-            Record the details of how this change was implemented.
+            Provide details about how this change request was implemented.
           </DialogDescription>
         </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="implementationNotes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Implementation Notes</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Describe how the change was implemented, including any issues encountered and how they were resolved."
-                      className="min-h-[150px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+        
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">Implementation Notes</h3>
+            <Textarea 
+              placeholder="Describe the actions taken to implement this change..."
+              value={implementationNotes}
+              onChange={(e) => setImplementationNotes(e.target.value)}
+              className="min-h-[150px]"
+              required
             />
-
-            <DialogFooter>
-              <Button variant="outline" type="button" onClick={onClose} className="mt-4 sm:mt-0">
-                Cancel
-              </Button>
-              <Button type="submit">
-                Mark as Implemented
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+          </div>
+          
+          <div className="border p-3 rounded-md bg-muted/30">
+            <div className="flex items-start space-x-3">
+              <div className="mt-0.5">
+                <CheckCircle className="h-5 w-5 text-success-600" />
+              </div>
+              <div>
+                <h4 className="font-medium">Implementation Checklist</h4>
+                <ul className="mt-2 space-y-1.5 text-sm">
+                  <li>- The change has been fully implemented according to specifications</li>
+                  <li>- All affected systems are operational</li>
+                  <li>- The change has been tested in the production environment</li>
+                  <li>- Stakeholders have been notified that the change is complete</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSubmit}
+            disabled={!implementationNotes.trim()}
+          >
+            <FileCheck className="mr-2 h-4 w-4" />
+            Confirm Implementation
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

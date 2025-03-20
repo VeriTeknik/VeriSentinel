@@ -1,20 +1,9 @@
-import React from 'react';
-import { 
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
-} from '@/components/ui/dialog';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { 
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage 
-} from '@/components/ui/form';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { CheckCircle, XCircle } from 'lucide-react';
-
-const approvalSchema = z.object({
-  comments: z.string().optional()
-});
+import { capitalize } from '@/lib/utils';
+import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 interface ApprovalDialogProps {
   isOpen: boolean;
@@ -27,103 +16,108 @@ interface ApprovalDialogProps {
 export function ApprovalDialog({ 
   isOpen, 
   onClose, 
-  onApprove, 
+  onApprove,
   approvalType,
-  isApproving 
+  isApproving
 }: ApprovalDialogProps) {
-  const form = useForm<z.infer<typeof approvalSchema>>({
-    resolver: zodResolver(approvalSchema),
-    defaultValues: {
-      comments: ''
+  const [comments, setComments] = useState<string>('');
+  const [approvalDecision, setApprovalDecision] = useState<boolean | null>(null);
+  
+  const handleSubmit = () => {
+    if (approvalDecision !== null) {
+      onApprove(approvalDecision, comments);
     }
-  });
-
-  const handleSubmit = (data: z.infer<typeof approvalSchema>) => {
-    onApprove(isApproving, data.comments);
-    form.reset();
-    onClose();
   };
-
+  
   const getTitle = () => {
-    if (isApproving) {
-      switch (approvalType) {
-        case 'security': return 'Security Approval';
-        case 'technical': return 'Technical Approval';
-        case 'business': return 'Business Approval';
-      }
-    } else {
-      switch (approvalType) {
-        case 'security': return 'Security Rejection';
-        case 'technical': return 'Technical Rejection';
-        case 'business': return 'Business Rejection';
-      }
-    }
+    return `${capitalize(approvalType)} ${approvalDecision === true ? 'Approval' : approvalDecision === false ? 'Rejection' : 'Review'}`;
   };
-
+  
   const getDescription = () => {
-    if (isApproving) {
-      switch (approvalType) {
-        case 'security': return 'This confirms the change meets all security requirements and policies.';
-        case 'technical': return 'This confirms the change is technically feasible and properly designed.';
-        case 'business': return 'This confirms the change aligns with business objectives and requirements.';
-      }
-    } else {
-      return 'Please provide a reason for rejecting this change request.';
+    switch(approvalType) {
+      case 'security':
+        return 'Evaluate the security implications of this change request.';
+      case 'technical':
+        return 'Evaluate the technical feasibility and impact of this change request.';
+      case 'business':
+        return 'Evaluate the business value and impact of this change request.';
+      default:
+        return 'Provide your review of this change request.';
     }
   };
-
+  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center">
-            {isApproving ? (
-              <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
-            ) : (
-              <XCircle className="h-5 w-5 mr-2 text-red-500" />
-            )}
-            {getTitle()}
-          </DialogTitle>
+          <DialogTitle>{getTitle()}</DialogTitle>
           <DialogDescription>
             {getDescription()}
           </DialogDescription>
         </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="comments"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Comments</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder={isApproving 
-                        ? "Optional comments regarding your approval" 
-                        : "Please explain why this change request is being rejected"}
-                      className="min-h-[100px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter>
-              <Button variant="outline" type="button" onClick={onClose} className="mt-4 sm:mt-0">
-                Cancel
+        
+        {approvalDecision === null ? (
+          <div className="flex space-x-4 justify-center py-4">
+            <Button 
+              variant="outline" 
+              className="bg-error-50 text-error-700 hover:bg-error-100 w-28"
+              onClick={() => setApprovalDecision(false)}
+            >
+              <XCircle className="h-4 w-4 mr-2" />
+              Reject
+            </Button>
+            <Button 
+              variant="outline" 
+              className="bg-success-50 text-success-700 hover:bg-success-100 w-28"
+              onClick={() => setApprovalDecision(true)}
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Approve
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="my-3">
+              <p className="mb-2 font-medium">
+                {approvalDecision 
+                  ? 'Approval Comments (optional)' 
+                  : 'Rejection Reason (required)'}
+              </p>
+              <Textarea 
+                placeholder={approvalDecision 
+                  ? "Enter any comments or conditions for your approval..." 
+                  : "Please explain why this change request is being rejected..."}
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                className="min-h-[100px]"
+                required={!approvalDecision}
+              />
+            </div>
+            
+            <DialogFooter className="flex space-x-2 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => setApprovalDecision(null)}
+                disabled={isApproving}
+              >
+                Back
               </Button>
               <Button 
-                type="submit"
-                variant={isApproving ? "default" : "destructive"}
+                onClick={handleSubmit}
+                disabled={isApproving || (!approvalDecision && !comments)}
               >
-                {isApproving ? 'Approve' : 'Reject'}
+                {isApproving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  `Submit ${approvalDecision ? 'Approval' : 'Rejection'}`
+                )}
               </Button>
             </DialogFooter>
-          </form>
-        </Form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

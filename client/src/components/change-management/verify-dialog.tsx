@@ -1,20 +1,10 @@
-import React from 'react';
-import { 
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
-} from '@/components/ui/dialog';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { 
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage 
-} from '@/components/ui/form';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { CheckCircle, XCircle } from 'lucide-react';
-
-const verifySchema = z.object({
-  verificationNotes: z.string().min(10, "Please provide verification details (min 10 characters)")
-});
+import { Loader2, ClipboardCheck, CheckCircle, XCircle } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 interface VerifyDialogProps {
   isOpen: boolean;
@@ -24,73 +14,102 @@ interface VerifyDialogProps {
 }
 
 export function VerifyDialog({ isOpen, onClose, onVerify, isApproving }: VerifyDialogProps) {
-  const form = useForm<z.infer<typeof verifySchema>>({
-    resolver: zodResolver(verifySchema),
-    defaultValues: {
-      verificationNotes: ''
-    }
-  });
-
-  const handleSubmit = (data: z.infer<typeof verifySchema>) => {
-    onVerify(isApproving, data.verificationNotes);
-    form.reset();
-    onClose();
+  const [verificationNotes, setVerificationNotes] = useState<string>('');
+  const [verificationStatus, setVerificationStatus] = useState<string>('verified');
+  
+  const handleSubmit = () => {
+    onVerify(verificationStatus === 'verified', verificationNotes);
   };
-
+  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center">
-            {isApproving ? (
-              <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
-            ) : (
-              <XCircle className="h-5 w-5 mr-2 text-red-500" />
-            )}
-            {isApproving ? 'Verify Implementation' : 'Fail Verification'}
-          </DialogTitle>
+          <DialogTitle>Verify Implementation</DialogTitle>
           <DialogDescription>
-            {isApproving 
-              ? 'Confirm that the change has been implemented correctly and meets all requirements.'
-              : 'Record why the implementation verification failed and what needs to be corrected.'}
+            Verify that the change has been correctly implemented and is working as expected.
           </DialogDescription>
         </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="verificationNotes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Verification Notes</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder={isApproving 
-                        ? "Describe what you verified and how you confirmed the implementation is correct." 
-                        : "Explain what failed verification and what needs to be corrected."}
-                      className="min-h-[150px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+        
+        <div className="space-y-4 py-4">
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium">Verification Status</h3>
+            <RadioGroup 
+              defaultValue="verified" 
+              value={verificationStatus}
+              onValueChange={setVerificationStatus}
+              className="space-y-3"
+            >
+              <div className="flex items-start space-x-3 border p-3 rounded-md bg-success-50">
+                <RadioGroupItem value="verified" id="verified" className="mt-1" />
+                <div className="space-y-1.5">
+                  <div className="flex items-center">
+                    <Label htmlFor="verified" className="font-medium text-success-700 flex items-center">
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Verify and Close
+                    </Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    The change has been implemented correctly and meets all requirements.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-3 border p-3 rounded-md bg-error-50">
+                <RadioGroupItem value="failed" id="failed" className="mt-1" />
+                <div className="space-y-1.5">
+                  <div className="flex items-center">
+                    <Label htmlFor="failed" className="font-medium text-error-700 flex items-center">
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Verification Failed
+                    </Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    The change does not meet requirements or has implementation issues.
+                  </p>
+                </div>
+              </div>
+            </RadioGroup>
+          </div>
+          
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">Verification Notes</h3>
+            <Textarea 
+              placeholder={verificationStatus === 'verified'
+                ? "Describe how the change was verified..."
+                : "Describe why the verification failed and what needs to be fixed..."}
+              value={verificationNotes}
+              onChange={(e) => setVerificationNotes(e.target.value)}
+              className="min-h-[150px]"
+              required
             />
-
-            <DialogFooter>
-              <Button variant="outline" type="button" onClick={onClose} className="mt-4 sm:mt-0">
-                Cancel
-              </Button>
-              <Button 
-                type="submit"
-                variant={isApproving ? "default" : "destructive"}
-              >
-                {isApproving ? 'Confirm Verification' : 'Fail Verification'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isApproving}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSubmit}
+            disabled={isApproving || !verificationNotes.trim()}
+            variant={verificationStatus === 'verified' ? 'default' : 'destructive'}
+          >
+            {isApproving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <ClipboardCheck className="mr-2 h-4 w-4" />
+                {verificationStatus === 'verified' 
+                  ? 'Confirm and Close' 
+                  : 'Submit Verification Failure'}
+              </>
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
