@@ -124,38 +124,39 @@ Each audit log entry must include:
 
 ### Usage Patterns
 ```typescript
-// Basic info log
-await req.audit.info("User logged in");
+// Direct audit logging
+await storage.createAuditLog({
+  severity: 6, // Info level
+  message: "Created device: Main Server",
+  action: "create_device",
+  resource: "device/123",
+  user: req.user?.username || "system",
+  complianceStandards: []
+});
 
-// Log with custom options
-await req.audit.info("Device status updated", {
+// Status change logging
+await storage.createAuditLog({
+  severity: 6,
+  message: `Updated device: ${device.name}, status changed from ${oldStatus} to ${newStatus}`,
   action: "update_device",
-  resource: `device/${id}`
+  resource: `device/${device.id}`,
+  user: req.user?.username || "system",
+  complianceStandards: []
 });
 
-// Log with different severity
-await req.audit.error("Failed to process payment", {
-  action: "process_payment",
-  resource: `payment/${id}`
-});
-
-// Log with compliance standards
-await req.audit.info("Security control updated", {
-  action: "update_control",
-  resource: `control/${id}`,
-  complianceStandards: ["PCI-DSS", "ISO-27001"]
+// Deletion logging
+await storage.createAuditLog({
+  severity: 6,
+  message: `Deleted device: ${device.name}`,
+  action: "delete_device",
+  resource: `device/${device.id}`,
+  user: req.user?.username || "system",
+  complianceStandards: []
 });
 ```
 
-### Implementation Details
-1. Middleware attaches audit logger to requests
-2. TypeScript overloads for flexible logging options
-3. Default severity of 6 (Info) for most operations
-4. Proper validation before database operations
-5. Consistent error handling patterns
-
 ### Best Practices
-1. Use descriptive action names (e.g., "create_user", "update_device")
+1. Use descriptive action names (e.g., "create_device", "update_device")
 2. Format resource identifiers as "type/id"
 3. Include relevant context in messages
 4. Set appropriate severity levels
