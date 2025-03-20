@@ -23,8 +23,8 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { eq, desc, and, isNull, or, inArray } from "drizzle-orm";
 import pg from "pg";
 import connectPgSimple from "connect-pg-simple";
+import bcrypt from "bcrypt";
 
-const MemoryStore = createMemoryStore(session);
 const PostgresSessionStore = connectPgSimple(session);
 
 export interface IStorage {
@@ -74,7 +74,7 @@ export interface IStorage {
   listTopLevelDevices(siteId: number): Promise<Device[]>;
   updateDevice(id: number, device: Partial<InsertDevice>): Promise<Device | undefined>;
   
-  // Change request management with RACI matrix support
+  // Change request management
   createChangeRequest(changeRequest: InsertChangeRequest): Promise<ChangeRequest>;
   getChangeRequest(id: number): Promise<ChangeRequest | undefined>;
   updateChangeRequest(id: number, changeRequest: Partial<ChangeRequest>): Promise<ChangeRequest | undefined>;
@@ -105,582 +105,8 @@ export interface IStorage {
   // Audit log management
   createAuditLog(auditLog: InsertAuditLog): Promise<AuditLog>;
   listAuditLogs(): Promise<AuditLog[]>;
-}
 
-export class MemStorage implements IStorage {
-  sessionStore: session.Store;
-  private users: Map<number, User>;
-  private complianceFrameworks: Map<number, ComplianceFramework>;
-  private complianceControls: Map<number, ComplianceControl>;
-  private pciDssControlsData: Map<number, PciDssControl>;
-  private evidenceItems: Map<number, Evidence>;
-  private siteData: Map<number, Site>;
-  private deviceData: Map<number, Device>;
-  private changeRequestData: Map<number, ChangeRequest>;
-  private taskData: Map<number, Task>;
-  private sprintData: Map<number, Sprint>;
-  private auditLogData: Map<number, AuditLog>;
-  
-  private userIdCounter: number;
-  private frameworkIdCounter: number;
-  private controlIdCounter: number;
-  private pciDssControlIdCounter: number;
-  private evidenceIdCounter: number;
-  private siteIdCounter: number;
-  private deviceIdCounter: number;
-  private changeRequestIdCounter: number;
-  private taskIdCounter: number;
-  private sprintIdCounter: number;
-  private auditLogIdCounter: number;
-
-  constructor() {
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000,
-    });
-    
-    this.users = new Map();
-    this.complianceFrameworks = new Map();
-    this.complianceControls = new Map();
-    this.pciDssControlsData = new Map();
-    this.evidenceItems = new Map();
-    this.siteData = new Map();
-    this.deviceData = new Map();
-    this.changeRequestData = new Map();
-    this.taskData = new Map();
-    this.sprintData = new Map();
-    this.auditLogData = new Map();
-    
-    this.userIdCounter = 1;
-    this.frameworkIdCounter = 1;
-    this.controlIdCounter = 1;
-    this.pciDssControlIdCounter = 1;
-    this.evidenceIdCounter = 1;
-    this.siteIdCounter = 1;
-    this.deviceIdCounter = 1;
-    this.changeRequestIdCounter = 1;
-    this.taskIdCounter = 1;
-    this.sprintIdCounter = 1;
-    this.auditLogIdCounter = 1;
-    
-    // Initialize with sample data
-    this.initializeData();
-  }
-
-  private initializeData() {
-    // This would be used to initialize sample data if needed
-  }
-
-  // User management
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userIdCounter++;
-    const user: User = { 
-      ...insertUser, 
-      id, 
-      role: insertUser.role || 'user',
-      avatar: null
-    };
-    this.users.set(id, user);
-    return user;
-  }
-
-  async listUsers(): Promise<User[]> {
-    return Array.from(this.users.values());
-  }
-  
-  async getUsersByRole(role: string): Promise<User[]> {
-    return Array.from(this.users.values())
-      .filter(user => user.role === role);
-  }
-  
-  async getUsersWithApprovalRights(): Promise<User[]> {
-    // Since we no longer have isApprover field, we'll return users with admin role
-    return Array.from(this.users.values())
-      .filter(user => user.role === 'admin' || user.role === 'ciso' || user.role === 'cto');
-  }
-  
-  // Compliance framework management
-  async createComplianceFramework(framework: InsertComplianceFramework): Promise<ComplianceFramework> {
-    const id = this.frameworkIdCounter++;
-    const newFramework: ComplianceFramework = { 
-      ...framework, 
-      id, 
-      description: framework.description || null 
-    };
-    this.complianceFrameworks.set(id, newFramework);
-    return newFramework;
-  }
-
-  async getComplianceFramework(id: number): Promise<ComplianceFramework | undefined> {
-    return this.complianceFrameworks.get(id);
-  }
-
-  async listComplianceFrameworks(): Promise<ComplianceFramework[]> {
-    return Array.from(this.complianceFrameworks.values());
-  }
-  
-  // Compliance control management
-  async createComplianceControl(control: InsertComplianceControl): Promise<ComplianceControl> {
-    const id = this.controlIdCounter++;
-    const newControl: ComplianceControl = { 
-      ...control, 
-      id, 
-      description: control.description || null,
-      dueDate: control.dueDate || null,
-      assignedTo: control.assignedTo || null,
-      lastChecked: null
-    };
-    this.complianceControls.set(id, newControl);
-    return newControl;
-  }
-
-  async getComplianceControl(id: number): Promise<ComplianceControl | undefined> {
-    return this.complianceControls.get(id);
-  }
-
-  async updateComplianceControl(id: number, control: Partial<InsertComplianceControl>): Promise<ComplianceControl | undefined> {
-    const existingControl = this.complianceControls.get(id);
-    if (!existingControl) return undefined;
-    
-    const updatedControl = { ...existingControl, ...control };
-    this.complianceControls.set(id, updatedControl);
-    return updatedControl;
-  }
-
-  async listComplianceControls(frameworkId?: number): Promise<ComplianceControl[]> {
-    const controls = Array.from(this.complianceControls.values());
-    if (frameworkId !== undefined) {
-      return controls.filter(control => control.frameworkId === frameworkId);
-    }
-    return controls;
-  }
-  
-  // PCI-DSS specific controls and RACI management
-  async createPciDssControl(control: InsertPciDssControl): Promise<PciDssControl> {
-    const id = this.pciDssControlIdCounter++;
-    const newControl: PciDssControl = { 
-      ...control, 
-      id, 
-      description: control.description || null,
-      guidance: control.guidance || null,
-      responsibleRoleId: control.responsibleRoleId || null,
-      accountableRoleId: control.accountableRoleId || null,
-      consultedRoleIds: control.consultedRoleIds || [],
-      informedRoleIds: control.informedRoleIds || [],
-      status: "not_assessed",
-      evidenceRequired: control.evidenceRequired ?? true,
-      lastAssessedAt: null,
-      nextAssessmentDue: null
-    };
-    this.pciDssControlsData.set(id, newControl);
-    return newControl;
-  }
-  
-  async getPciDssControl(id: number): Promise<PciDssControl | undefined> {
-    return this.pciDssControlsData.get(id);
-  }
-  
-  async updatePciDssControl(id: number, control: Partial<InsertPciDssControl>): Promise<PciDssControl | undefined> {
-    const existingControl = this.pciDssControlsData.get(id);
-    if (!existingControl) return undefined;
-    
-    const updatedControl = { ...existingControl, ...control };
-    this.pciDssControlsData.set(id, updatedControl);
-    return updatedControl;
-  }
-  
-  async listPciDssControls(section?: string): Promise<PciDssControl[]> {
-    const controls = Array.from(this.pciDssControlsData.values());
-    if (section !== undefined) {
-      return controls.filter(control => control.section === section);
-    }
-    return controls;
-  }
-  
-  async getPciDssControlsByRole(roleId: number): Promise<PciDssControl[]> {
-    return Array.from(this.pciDssControlsData.values())
-      .filter(control => 
-        control.responsibleRoleId === roleId || 
-        control.accountableRoleId === roleId ||
-        (control.consultedRoleIds && control.consultedRoleIds.includes(roleId.toString())) ||
-        (control.informedRoleIds && control.informedRoleIds.includes(roleId.toString()))
-      );
-  }
-  
-  // Evidence management
-  async createEvidence(evidenceItem: InsertEvidence): Promise<Evidence> {
-    const id = this.evidenceIdCounter++;
-    const newEvidence: Evidence = { 
-      ...evidenceItem, 
-      id, 
-      description: evidenceItem.description || null,
-      filePath: evidenceItem.filePath || null,
-      uploadedAt: new Date() 
-    };
-    this.evidenceItems.set(id, newEvidence);
-    return newEvidence;
-  }
-
-  async getEvidence(id: number): Promise<Evidence | undefined> {
-    return this.evidenceItems.get(id);
-  }
-
-  async listEvidenceByControl(controlId: number): Promise<Evidence[]> {
-    return Array.from(this.evidenceItems.values())
-      .filter(evidence => evidence.controlId === controlId);
-  }
-  
-  // Site management
-  async createSite(site: InsertSite): Promise<Site> {
-    const id = this.siteIdCounter++;
-    const newSite: Site = { 
-      id, 
-      name: site.name,
-      type: site.type,
-      location: site.location || null,
-      description: site.description || null,
-      securityAdminId: site.securityAdminId || null,
-      siteAdminId: site.siteAdminId || null,
-      emergencyContactId: site.emergencyContactId || null,
-      lastAuditDate: null,
-      securityLevel: site.securityLevel || null
-    };
-    this.siteData.set(id, newSite);
-    return newSite;
-  }
-
-  async getSite(id: number): Promise<Site | undefined> {
-    return this.siteData.get(id);
-  }
-
-  async listSites(): Promise<Site[]> {
-    return Array.from(this.siteData.values());
-  }
-  
-  // Device management
-  async createDevice(device: InsertDevice): Promise<Device> {
-    const id = this.deviceIdCounter++;
-    const newDevice: Device = { 
-      id,
-      siteId: device.siteId,
-      parentDeviceId: device.parentDeviceId || null,
-      name: device.name,
-      type: device.type,
-      deviceRole: device.deviceRole || null,
-      status: device.status,
-      ipAddress: device.ipAddress || null,
-      vlan: device.vlan || null,
-      operatingSystem: device.operatingSystem || null,
-      services: device.services || null,
-      ownerId: device.ownerId || null,
-      responsibilityType: device.responsibilityType || null,
-      lastMaintenanceDate: device.lastMaintenanceDate || null,
-      maintenanceNotes: device.maintenanceNotes || null
-    };
-    this.deviceData.set(id, newDevice);
-    return newDevice;
-  }
-
-  async getDevice(id: number): Promise<Device | undefined> {
-    return this.deviceData.get(id);
-  }
-
-  async listDevices(siteId?: number): Promise<Device[]> {
-    const devices = Array.from(this.deviceData.values());
-    if (siteId !== undefined) {
-      return devices.filter(device => device.siteId === siteId);
-    }
-    return devices;
-  }
-  
-  async listDeviceChildren(parentDeviceId: number): Promise<Device[]> {
-    return Array.from(this.deviceData.values())
-      .filter(device => device.parentDeviceId === parentDeviceId);
-  }
-  
-  async listTopLevelDevices(siteId: number): Promise<Device[]> {
-    return Array.from(this.deviceData.values())
-      .filter(device => device.siteId === siteId && device.parentDeviceId === null);
-  }
-  
-  async updateDevice(id: number, device: Partial<InsertDevice>): Promise<Device | undefined> {
-    const existingDevice = this.deviceData.get(id);
-    if (!existingDevice) return undefined;
-    
-    const updatedDevice = { ...existingDevice, ...device };
-    this.deviceData.set(id, updatedDevice);
-    return updatedDevice;
-  }
-  
-  // Change request management
-  async createChangeRequest(changeRequest: InsertChangeRequest): Promise<ChangeRequest> {
-    const id = this.changeRequestIdCounter++;
-    const newChangeRequest: ChangeRequest = { 
-      ...changeRequest, 
-      id, 
-      status: 'draft',
-      type: changeRequest.type || 'standard',
-      riskLevel: changeRequest.riskLevel || 'medium',
-      assignedTo: null,
-      
-      // RACI approval fields
-      technicalApprovalStatus: 'pending',
-      technicalApproverId: null,
-      technicalApprovedAt: null,
-      
-      securityApprovalStatus: 'pending',
-      securityApproverId: null,
-      securityApprovedAt: null,
-      
-      businessApprovalStatus: 'pending',
-      businessApproverId: null,
-      businessApprovedAt: null,
-      
-      // Implementation and verification tracking
-      implementerId: null,
-      implementationNotes: null,
-      
-      verificationStatus: 'pending',
-      verifierId: null,
-      verifiedAt: null,
-      verificationNotes: null,
-      
-      // Dates
-      requestedAt: new Date(),
-      scheduledFor: changeRequest.scheduledFor || null,
-      implementedAt: null,
-      closedAt: null,
-      
-      // Additional tracking
-      affectedSystems: changeRequest.affectedSystems || null,
-      backoutPlan: changeRequest.backoutPlan || null,
-      relatedControlIds: changeRequest.relatedControlIds || [],
-      comments: null,
-      
-      // Firewall-specific fields
-      firewallRules: changeRequest.firewallRules || null,
-      sourceIp: changeRequest.sourceIp || null,
-      destinationIp: changeRequest.destinationIp || null,
-      portServices: changeRequest.portServices || null,
-      action: changeRequest.action || null
-    };
-    this.changeRequestData.set(id, newChangeRequest);
-    return newChangeRequest;
-  }
-
-  async getChangeRequest(id: number): Promise<ChangeRequest | undefined> {
-    return this.changeRequestData.get(id);
-  }
-
-  async updateChangeRequest(id: number, changeRequest: Partial<ChangeRequest>): Promise<ChangeRequest | undefined> {
-    const existingRequest = this.changeRequestData.get(id);
-    if (!existingRequest) return undefined;
-    
-    const updatedRequest = { ...existingRequest, ...changeRequest };
-    this.changeRequestData.set(id, updatedRequest);
-    return updatedRequest;
-  }
-
-  async listChangeRequests(): Promise<ChangeRequest[]> {
-    return Array.from(this.changeRequestData.values());
-  }
-  
-  async getChangeRequestsByStatus(status: string): Promise<ChangeRequest[]> {
-    return Array.from(this.changeRequestData.values())
-      .filter(request => request.status === status);
-  }
-  
-  async getChangeRequestsForApproval(approverId: number): Promise<ChangeRequest[]> {
-    return Array.from(this.changeRequestData.values())
-      .filter(request => 
-        (request.status === 'pending_approval') && 
-        (
-          // Technical approvers
-          (request.technicalApprovalStatus === 'pending' && request.technicalApproverId === approverId) ||
-          // Security approvers
-          (request.securityApprovalStatus === 'pending' && request.securityApproverId === approverId) ||
-          // Business approvers
-          (request.businessApprovalStatus === 'pending' && request.businessApproverId === approverId)
-        )
-      );
-  }
-  
-  async getChangeRequestsRequiredTechnicalApproval(): Promise<ChangeRequest[]> {
-    return Array.from(this.changeRequestData.values())
-      .filter(request => 
-        request.status === 'pending_approval' && 
-        request.technicalApprovalStatus === 'pending'
-      );
-  }
-  
-  async getChangeRequestsRequiredSecurityApproval(): Promise<ChangeRequest[]> {
-    return Array.from(this.changeRequestData.values())
-      .filter(request => 
-        request.status === 'pending_approval' && 
-        request.securityApprovalStatus === 'pending'
-      );
-  }
-  
-  async getChangeRequestsForImplementation(implementerId?: number): Promise<ChangeRequest[]> {
-    const requests = Array.from(this.changeRequestData.values())
-      .filter(request => request.status === 'approved');
-    
-    if (implementerId !== undefined) {
-      return requests.filter(request => request.assignedTo === implementerId);
-    }
-    
-    return requests;
-  }
-  
-  // Change request to device relationship management
-  private changeRequestDevicesData: Map<number, ChangeRequestDevice> = new Map();
-  private changeRequestDeviceIdCounter: number = 1;
-  
-  async addDeviceToChangeRequest(changeRequestDevice: InsertChangeRequestDevice): Promise<ChangeRequestDevice> {
-    const id = this.changeRequestDeviceIdCounter++;
-    const newRelation: ChangeRequestDevice = {
-      ...changeRequestDevice,
-      id,
-      impact: changeRequestDevice.impact || 'affected',
-      notes: changeRequestDevice.notes || null
-    };
-    this.changeRequestDevicesData.set(id, newRelation);
-    return newRelation;
-  }
-  
-  async removeDeviceFromChangeRequest(changeRequestId: number, deviceId: number): Promise<void> {
-    // Find and remove all matching entries
-    // Use Array.from to avoid the TS iteration error
-    Array.from(this.changeRequestDevicesData.entries()).forEach(([id, relation]) => {
-      if (relation.changeRequestId === changeRequestId && relation.deviceId === deviceId) {
-        this.changeRequestDevicesData.delete(id);
-      }
-    });
-  }
-  
-  async getDevicesForChangeRequest(changeRequestId: number): Promise<(Device & { impact: string, notes: string | null })[]> {
-    // Get all device relations for this change request
-    const relations = Array.from(this.changeRequestDevicesData.values())
-      .filter(relation => relation.changeRequestId === changeRequestId);
-    
-    // Map to full device details with impact and notes
-    return relations.map(relation => {
-      const device = this.deviceData.get(relation.deviceId);
-      if (!device) {
-        throw new Error(`Device with ID ${relation.deviceId} not found`);
-      }
-      return {
-        ...device,
-        // Ensure impact is never null, default to 'affected'
-        impact: relation.impact ?? 'affected',
-        notes: relation.notes
-      };
-    });
-  }
-  
-  async getChangeRequestsForDevice(deviceId: number): Promise<ChangeRequest[]> {
-    // Find all change request IDs related to this device
-    const changeRequestIds = Array.from(this.changeRequestDevicesData.values())
-      .filter(relation => relation.deviceId === deviceId)
-      .map(relation => relation.changeRequestId);
-    
-    // Get the full change request details
-    return Array.from(this.changeRequestData.values())
-      .filter(request => changeRequestIds.includes(request.id));
-  }
-  
-  // Task management
-  async createTask(task: InsertTask): Promise<Task> {
-    const id = this.taskIdCounter++;
-    const newTask: Task = { 
-      id,
-      title: task.title,
-      status: task.status,
-      description: task.description || null,
-      dueDate: task.dueDate || null,
-      assignedTo: task.assignedTo || null,
-      relatedControlId: task.relatedControlId || null,
-      relatedChangeRequestId: task.relatedChangeRequestId || null,
-      priority: task.priority || "medium",
-      sprintId: task.sprintId || null,
-      createdBy: task.createdBy || null,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.taskData.set(id, newTask);
-    return newTask;
-  }
-
-  async getTask(id: number): Promise<Task | undefined> {
-    return this.taskData.get(id);
-  }
-
-  async updateTask(id: number, task: Partial<InsertTask>): Promise<Task | undefined> {
-    const existingTask = this.taskData.get(id);
-    if (!existingTask) return undefined;
-    
-    const updatedTask = { 
-      ...existingTask, 
-      ...task,
-      updatedAt: new Date() 
-    };
-    this.taskData.set(id, updatedTask);
-    return updatedTask;
-  }
-
-  async listTasks(status?: string): Promise<Task[]> {
-    const tasks = Array.from(this.taskData.values());
-    if (status !== undefined) {
-      return tasks.filter(task => task.status === status);
-    }
-    return tasks;
-  }
-  
-  // Sprint management
-  async createSprint(sprint: InsertSprint): Promise<Sprint> {
-    const id = this.sprintIdCounter++;
-    const newSprint: Sprint = { ...sprint, id };
-    this.sprintData.set(id, newSprint);
-    return newSprint;
-  }
-
-  async getSprint(id: number): Promise<Sprint | undefined> {
-    return this.sprintData.get(id);
-  }
-
-  async listSprints(): Promise<Sprint[]> {
-    return Array.from(this.sprintData.values());
-  }
-  
-  // Audit log management
-  async createAuditLog(auditLog: InsertAuditLog): Promise<AuditLog> {
-    const id = this.auditLogIdCounter++;
-    const newAuditLog: AuditLog = { 
-      id, 
-      action: auditLog.action,
-      userId: auditLog.userId,
-      resourceType: auditLog.resourceType,
-      resourceId: auditLog.resourceId,
-      details: auditLog.details || null,
-      timestamp: new Date() 
-    };
-    this.auditLogData.set(id, newAuditLog);
-    return newAuditLog;
-  }
-
-  async listAuditLogs(): Promise<AuditLog[]> {
-    return Array.from(this.auditLogData.values())
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }
+  updateUser(id: number, data: Partial<InsertUser>): Promise<User | null>;
 }
 
 // PostgreSQL database storage implementation
@@ -709,7 +135,16 @@ export class PostgresStorage implements IStorage {
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const result = await db.insert(users).values(user).returning();
+    // Check if this is the first user
+    const existingUsers = await db.select().from(users);
+    
+    const userToCreate = {
+      ...user,
+      // Make first user admin, otherwise use provided role or default to user
+      role: existingUsers.length === 0 ? 'admin' : (user.role || 'user')
+    };
+    
+    const result = await db.insert(users).values(userToCreate).returning();
     return result[0];
   }
 
@@ -724,7 +159,6 @@ export class PostgresStorage implements IStorage {
   }
   
   async getUsersWithApprovalRights(): Promise<User[]> {
-    // Since we no longer have isApprover field, we'll return users with admin role
     return await db.select()
       .from(users)
       .where(
@@ -820,9 +254,6 @@ export class PostgresStorage implements IStorage {
       or(
         eq(pciDssControls.responsibleRoleId, roleId),
         eq(pciDssControls.accountableRoleId, roleId)
-        // Note: For consultedRoleIds and informedRoleIds we would need more complex filtering
-        // as these are array fields. This would require SQL-specific array operations
-        // which may vary based on the database being used.
       )
     );
   }
@@ -937,7 +368,6 @@ export class PostgresStorage implements IStorage {
   }
   
   async getChangeRequestsForApproval(approverId: number): Promise<ChangeRequest[]> {
-    // This is a more complex query where we need to check all approval roles
     return await db.select()
       .from(changeRequests)
       .where(
@@ -1093,7 +523,6 @@ export class PostgresStorage implements IStorage {
       if (deviceResult.length > 0) {
         result.push({
           ...deviceResult[0],
-          // Ensure impact is never null, default to 'affected'
           impact: relation.impact ?? 'affected',
           notes: relation.notes
         });
@@ -1114,7 +543,6 @@ export class PostgresStorage implements IStorage {
     
     const ids = changeRequestIds.map(relation => relation.changeRequestId);
     
-    // Use SQL IN operator via raw SQL query
     const result = await db.execute(`
       SELECT * FROM "change_requests" 
       WHERE "id" IN (${ids.join(',')})
@@ -1122,9 +550,25 @@ export class PostgresStorage implements IStorage {
     
     return result as unknown as ChangeRequest[];
   }
+
+  async updateUser(id: number, data: Partial<InsertUser>): Promise<User | null> {
+    try {
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          ...data,
+          ...(data.password ? { password: await bcrypt.hash(data.password, 10) } : {})
+        })
+        .where(eq(users.id, id))
+        .returning();
+
+      return updatedUser || null;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+  }
 }
 
-// Use PostgreSQL storage if DATABASE_URL is available, otherwise fallback to memory storage
-export const storage = process.env.DATABASE_URL 
-  ? new PostgresStorage() 
-  : new MemStorage();
+// Export PostgreSQL storage instance
+export const storage = new PostgresStorage();

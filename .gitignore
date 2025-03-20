@@ -7,5 +7,4 @@ vite.config.ts.*
 
 .env
 /attached_assets
-/memory-bank
 .clinerules

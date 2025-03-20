@@ -11,7 +11,8 @@ import {
   insertDeviceSchema,
   insertChangeRequestSchema,
   insertTaskSchema,
-  insertSprintSchema
+  insertSprintSchema,
+  insertUserSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -36,6 +37,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       details
     });
   };
+
+  // User management routes
+  app.get("/api/users", isAuthenticated, async (req, res) => {
+    try {
+      // Check if user has management permissions
+      const managementRoles = ["admin", "ciso", "cto", "security_manager", "network_engineer"];
+      if (!managementRoles.includes(req.user!.role)) {
+        return res.status(403).json({ message: "You don't have permission to view users" });
+      }
+      
+      const users = await storage.listUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to retrieve users" });
+    }
+  });
+
+  app.put("/api/users/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Check if user has management permissions
+      const managementRoles = ["admin", "ciso", "cto", "security_manager", "network_engineer"];
+      if (!managementRoles.includes(req.user!.role)) {
+        return res.status(403).json({ message: "You don't have permission to update users" });
+      }
+
+      // Get existing user
+      const existingUser = await storage.getUser(id);
+      if (!existingUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Validate update data
+      const { password, ...updateData } = req.body;
+      
+      // If password is provided and not empty, include it in the update
+      const dataToUpdate = {
+        ...updateData,
+        ...(password ? { password } : {})
+      };
+
+      // Update user
+      const updatedUser = await storage.updateUser(id, dataToUpdate);
+      
+      await logAuditAction(
+        req.user!.id,
+        "update_user",
+        "user",
+        id.toString(),
+        `Updated user: ${updatedUser!.username}`
+      );
+      
+      res.json(updatedUser);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error('Error updating user:', error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
 
   // Compliance Frameworks API
   app.get("/api/compliance-frameworks", isAuthenticated, async (req, res) => {

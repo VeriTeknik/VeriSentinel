@@ -1,0 +1,249 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Verisentinel Project Intelligence
+
+This file captures important patterns, preferences, and project intelligence for the Verisentinel project. It serves as a learning journal to help work more effectively with the project.
+
+## Coding Preferences
+
+### General Principles
+
+1. **Keep It Simple**
+   - Prefer simple, readable solutions over complex ones
+   - Break complex functions into smaller, focused functions
+   - Use clear, descriptive variable and function names
+
+2. **Avoid Duplication**
+   - Reuse code by checking for existing implementations
+   - Create shared utilities for common operations
+   - Follow DRY (Don't Repeat Yourself) principles
+
+3. **Environment Awareness**
+   - Write code that works consistently across development, testing, and production
+   - Use environment variables for configuration
+   - Handle environment-specific logic appropriately
+
+4. **Targeted Changes**
+   - Only modify requested or well-understood parts of the codebase
+   - Make minimal changes to achieve the desired outcome
+   - Avoid changing unrelated code
+
+5. **Maintain Consistency**
+   - Follow established patterns in the codebase
+   - When fixing bugs, avoid introducing new patterns unless necessary
+   - Remove old logic to prevent duplication
+
+6. **Clean Codebase**
+   - Keep the code organized and well-structured
+   - Use consistent formatting and naming conventions
+   - Add appropriate comments for complex logic
+
+7. **File Size Limits**
+   - Keep files under 200-300 lines
+   - Refactor large files into smaller, focused modules
+   - Split large components into smaller sub-components
+
+8. **Data Mocking**
+   - Use mocked data only in tests, not in development or production
+   - Create separate test fixtures for unit and integration tests
+   - Keep test data realistic but minimal
+
+9. **.env Caution**
+   - Never overwrite the .env file without explicit confirmation
+   - Document all environment variables in .env.example
+   - Use appropriate default values for non-sensitive configuration
+
+## TypeScript Patterns
+
+1. **Type Definitions**
+   - Define types in dedicated files under `/types` directory
+   - Use interfaces for object shapes that might be extended
+   - Use type aliases for unions, intersections, and simple types
+   - Export types that are used across multiple files
+
+2. **Type Safety**
+   - Avoid using `any` type unless absolutely necessary
+   - Use generics for reusable components and functions
+   - Leverage TypeScript's utility types (Partial, Pick, Omit, etc.)
+   - Add proper return types to all functions
+
+3. **Zod Validation**
+   - Define Zod schemas for all API inputs and outputs
+   - Reuse schema components for common patterns
+   - Keep validation logic separate from business logic
+   - Use Zod's infer to derive TypeScript types from schemas
+
+## React Patterns
+
+1. **Component Structure**
+   - Use functional components with hooks
+   - Keep components focused on a single responsibility
+   - Extract complex logic into custom hooks
+   - Use composition over inheritance
+
+2. **State Management**
+   - Use React Query for server state
+   - Use React Context for global UI state
+   - Use local state for component-specific state
+   - Minimize prop drilling with context or composition
+
+3. **Form Handling**
+   - Use React Hook Form for all forms
+   - Define Zod schemas for form validation
+   - Create reusable form components
+   - Handle form submission and errors consistently
+
+4. **Error Handling**
+   - Use error boundaries for component-level errors
+   - Handle API errors with consistent error messages
+   - Provide user-friendly error messages
+   - Log errors for debugging
+
+5. **Localization**
+   - Use respective libraries for translations
+   - Extract all UI text to translation files
+   - Support right-to-left (RTL) languages
+   - Use ICU message format for complex translations
+
+## Typescript Patterns
+
+1. **Page Structure**
+   - Organize pages by feature/module
+   - Use layout components for consistent page structure
+   - Leverage react query data fetching methods appropriately
+
+2. **API Routes**
+   - Organize API routes by feature/module
+   - Use consistent error handling
+   - Validate all inputs with Zod
+   - Follow RESTful principles
+
+3. **Authentication**
+   - Use authentication
+   - Implement middleware for protected routes
+   - Use session for user information
+   - Handle authentication errors consistently
+
+4. **Localization**
+   - Configure for multi-language support
+   - Use middleware for language detection
+   - Store user language preference
+   - Support language switching
+
+## Database Patterns
+
+1. **Prisma Usage**
+   - Define models in drizzle
+   - Use migrations for schema changes
+   - Create repositories for database access
+   - Use transactions for related operations
+
+2. **Query Optimization**
+   - Select only needed fields
+   - Use appropriate indexes
+   - Paginate large result sets
+   - Use includes for related data
+
+## Testing Patterns
+
+1. **Unit Testing**
+   - Test business logic in isolation
+   - Mock external dependencies
+   - Focus on edge cases and error handling
+   - Keep tests small and focused
+
+2. **Component Testing**
+   - Test component rendering and interactions
+   - Use React Testing Library
+   - Focus on user interactions
+   - Test accessibility
+
+3. **API Testing**
+   - Test API endpoints with supertest
+   - Verify request validation
+   - Test error handling
+   - Use test database for integration tests
+
+## Project-Specific Patterns
+
+1. **Compliance Module**
+   - Organize controls by framework
+   - Implement severity-based prioritization
+   - Support evidence attachment
+   - Generate compliance reports
+
+2. **Hardware Inventory**
+   - Use wizard pattern for registration
+   - Implement hierarchical structure (site > device)
+   - Support different device types
+   - Generate network topology
+
+3. **Change Management**
+   - Implement multi-step approval workflow
+   - Track request status
+   - Maintain audit trail
+   - Support comments and attachments
+
+4. **Task Management**
+   - Use Kanban board pattern
+   - Support sprint planning
+   - Implement task assignment
+   - Track task status and deadlines
+
+## Workflow Preferences
+
+1. **Focus on Relevant Areas**
+   - Only touch code relevant to the current task
+   - Understand dependencies before making changes
+   - Consider impact on related modules
+
+2. **Preserve Stability**
+   - Do not alter unrelated code or established patterns
+   - Test changes thoroughly
+   - Consider backward compatibility
+
+3. **Thorough Testing**
+   - Write tests for all major functionality
+   - Test edge cases and error handling
+   - Verify changes work across environments
+
+4. **Minimal Disruption**
+   - Avoid making major changes to stable features
+   - Communicate breaking changes clearly
+   - Provide migration paths for significant changes
+
+5. **Impact Awareness**
+   - Consider how changes affect other parts of the system
+   - Document dependencies and assumptions
+   - Update related documentation
+
+## Documentation Preferences
+
+1. **Code Comments**
+   - Add comments for complex logic
+   - Document assumptions and edge cases
+   - Keep comments up-to-date with code changes
+
+2. **README Files**
+   - Provide clear setup instructions
+   - Document key concepts and architecture
+   - Include troubleshooting guidance
+
+3. **API Documentation**
+   - Document all API endpoints
+   - Include request/response examples
+   - Document error responses
+
+4. **User Guides**
+   - Create comprehensive guides for end-users
+   - Include screenshots and examples
+   - Keep documentation up-to-date
+
+## Project Evolution
+
+This section will track key decisions and changes as the project evolves:
+
