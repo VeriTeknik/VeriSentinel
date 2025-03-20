@@ -84,11 +84,12 @@ export function setupAuth(app: Express) {
 
       // Create audit log for user registration
       await storage.createAuditLog({
+        severity: 6, // Info level
+        user: user.username,
         action: "user_registered",
-        userId: user.id,
-        resourceType: "user",
-        resourceId: user.id.toString(),
-        details: `User ${user.username} registered`
+        resource: `user/${user.id}`,
+        message: `User ${user.username} registered`,
+        complianceStandards: []
       });
 
       req.login(user, (err) => {
@@ -108,11 +109,12 @@ export function setupAuth(app: Express) {
     // Create audit log for login
     if (req.user) {
       storage.createAuditLog({
+        severity: 6, // Info level
+        user: req.user.username,
         action: "user_login",
-        userId: req.user.id,
-        resourceType: "user",
-        resourceId: req.user.id.toString(),
-        details: `User ${req.user.username} logged in`
+        resource: `user/${req.user.id}`,
+        message: `User ${req.user.username} logged in`,
+        complianceStandards: []
       });
       
       // Remove password from response
@@ -128,11 +130,12 @@ export function setupAuth(app: Express) {
     // Create audit log for logout
     if (req.user) {
       storage.createAuditLog({
+        severity: 6, // Info level
+        user: req.user.username,
         action: "user_logout",
-        userId: req.user.id,
-        resourceType: "user",
-        resourceId: req.user.id.toString(),
-        details: `User ${req.user.username} logged out`
+        resource: `user/${req.user.id}`,
+        message: `User ${req.user.username} logged out`,
+        complianceStandards: []
       });
     }
     

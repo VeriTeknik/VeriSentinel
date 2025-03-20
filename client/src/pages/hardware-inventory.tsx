@@ -156,7 +156,7 @@ export default function HardwareInventory() {
     },
     onError: (error) => {
       toast({
-        title: "Failed to Update Device",
+        title: "Failed to Update Device..",
         description: error.message,
         variant: "destructive",
       });

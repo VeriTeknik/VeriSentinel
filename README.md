@@ -148,3 +148,105 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - All technologies and libraries used in this project
 - Contributors to this project
+
+## Notification System
+
+Verisentinel includes a comprehensive notification system for real-time alerts and updates. The system supports multiple notification types and delivery methods to ensure timely communication of important events.
+
+### Notification Types
+
+1. **System Notifications**
+   - Audit events
+   - System status changes
+   - Security alerts
+   - Compliance updates
+
+2. **User Notifications**
+   - Task assignments
+   - Change request updates
+   - Approval requests
+   - Deadline reminders
+
+3. **Device Notifications**
+   - Status changes
+   - Maintenance alerts
+   - Security incidents
+   - Performance warnings
+
+### Delivery Methods
+
+- In-app notifications (real-time via WebSocket)
+- Email notifications (configurable)
+- SMS alerts (for critical notifications)
+- Webhook integrations (for external systems)
+
+### Configuration
+
+Notification preferences can be configured at both system and user levels:
+
+```env
+# .env configuration
+NOTIFICATION_WEBSOCKET_PORT=8080
+NOTIFICATION_EMAIL_ENABLED=true
+NOTIFICATION_SMS_ENABLED=true
+NOTIFICATION_WEBHOOK_URL=https://your-webhook-url.com
+```
+
+User preferences can be managed through the notification settings panel in the user profile.
+
+### Usage Examples
+
+```typescript
+// Send a basic notification
+await notify.info("New task assigned", {
+  title: "Task Assignment",
+  message: "You have been assigned a new task"
+});
+
+// Send an emergency notification
+await notify.emergency("System outage detected", {
+  title: "Critical System Alert",
+  message: "Database connection lost",
+  recipients: ["admin", "dba"]
+});
+```
+
+### WebSocket Integration
+
+The notification system uses WebSocket for real-time updates. To connect:
+
+```typescript
+// Frontend WebSocket connection
+const ws = new WebSocket(`ws://localhost:8080/notifications`);
+
+ws.onmessage = (event) => {
+  const notification = JSON.parse(event.data);
+  // Handle notification
+};
+```
+
+### Notification Center
+
+The notification center component provides a unified interface for managing notifications:
+
+```typescript
+import { NotificationCenter } from '@components/notifications';
+
+function App() {
+  return (
+    <NotificationCenter
+      onMarkAsRead={handleMarkAsRead}
+      onClear={handleClear}
+    />
+  );
+}
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/notifications` | GET | Get user notifications |
+| `/api/notifications/unread` | GET | Get unread notifications |
+| `/api/notifications/:id/read` | PUT | Mark notification as read |
+| `/api/notifications/preferences` | GET/PUT | Manage notification preferences |

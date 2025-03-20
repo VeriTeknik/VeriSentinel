@@ -6,17 +6,6 @@ import { insertDeviceSchema } from '@shared/schema';
 
 const router = Router();
 
-// Log action to audit log
-const logAuditAction = async (userId: number, action: string, resourceType: string, resourceId: string, details: string) => {
-  await storage.createAuditLog({
-    action,
-    userId,
-    resourceType,
-    resourceId,
-    details
-  });
-};
-
 // List devices
 router.get('/', withPermission('view_devices'), async (req, res) => {
   try {
@@ -63,20 +52,22 @@ router.post('/', withPermission('manage_devices'), async (req, res) => {
     const validatedData = insertDeviceSchema.parse(req.body);
     const device = await storage.createDevice(validatedData);
     
-    await logAuditAction(
-      req.user!.id,
-      "create_device",
-      "device",
-      device.id.toString(),
-      `Created device: ${device.name}`
-    );
+    // Create audit log
+    await storage.createAuditLog({
+      severity: 6, // Info level
+      message: `Created device: ${device.name}, type: ${device.type}, status: ${device.status}`,
+      action: "create_device",
+      resource: `device/${device.id}`,
+      user: req.user?.username || 'system',
+      complianceStandards: []
+    });
     
     res.status(201).json(device);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid input", errors: error.errors });
     }
-    console.error('Error in POST /devices:', error);
+    console.error("Error in POST /devices:", error);
     res.status(500).json({ message: "Failed to create device" });
   }
 });
@@ -85,41 +76,40 @@ router.post('/', withPermission('manage_devices'), async (req, res) => {
 router.put('/:id', withPermission('manage_devices'), async (req, res) => {
   try {
     const deviceId = parseInt(req.params.id);
-    const device = await storage.getDevice(deviceId);
+    const existingDevice = await storage.getDevice(deviceId);
     
-    if (!device) {
+    if (!existingDevice) {
       return res.status(404).json({ message: "Device not found" });
     }
-    
+
     const validatedData = insertDeviceSchema.partial().parse(req.body);
-    const updatedDevice = await storage.updateDevice(deviceId, validatedData);
-    
-    // Log status change if status was updated
-    if (validatedData.status && validatedData.status !== device.status) {
-      await logAuditAction(
-        req.user!.id,
-        "update_device",
-        "device",
-        deviceId.toString(),
-        `Updated device: ${device.name}, status: ${validatedData.status}, Previous status: ${device.status}`
-      );
-    } else {
-      await logAuditAction(
-        req.user!.id,
-        "update_device",
-        "device",
-        deviceId.toString(),
-        `Updated device: ${device.name}`
-      );
+    const device = await storage.updateDevice(deviceId, validatedData);
+
+    if (!device) {
+      return res.status(404).json({ message: "Device not found after update" });
     }
-    
-    res.json(updatedDevice);
+
+    // Log status change if status was updated
+    const message = validatedData.status && validatedData.status !== existingDevice.status
+      ? `Updated device: ${device.name}, status changed from ${existingDevice.status} to ${validatedData.status}`
+      : `Updated device: ${device.name}, fields: ${Object.keys(validatedData).join(", ")}`;
+
+    await storage.createAuditLog({
+      severity: 6, // Info level
+      message,
+      action: "update_device",
+      resource: `device/${device.id}`,
+      user: req.user?.username || 'system',
+      complianceStandards: []
+    });
+
+    res.json(device);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ message: "Invalid input", errors: error.errors });
     }
-    console.error('Error in PUT /devices/:id:', error);
-    res.status(500).json({ message: "Failed to update device" });
+    console.error("Error in PUT /devices/:id:", error);
+    res.status(500).json({ message: "Failed to update device." });
   }
 });
 
@@ -132,21 +122,21 @@ router.delete('/:id', withPermission('manage_devices'), async (req, res) => {
     if (!device) {
       return res.status(404).json({ message: "Device not found" });
     }
-    
-    // TODO: Implement device deletion in storage
+
     await storage.deleteDevice(deviceId);
     
-    await logAuditAction(
-      req.user!.id,
-      "delete_device",
-      "device",
-      deviceId.toString(),
-      `Deleted device: ${device.name}`
-    );
-    
+    await storage.createAuditLog({
+      severity: 6, // Info level
+      message: `Deleted device: ${device.name}`,
+      action: "delete_device",
+      resource: `device/${device.id}`,
+      user: req.user?.username || 'system',
+      complianceStandards: []
+    });
+
     res.status(204).send();
   } catch (error) {
-    console.error('Error in DELETE /devices/:id:', error);
+    console.error("Error in DELETE /devices/:id:", error);
     res.status(500).json({ message: "Failed to delete device" });
   }
 });

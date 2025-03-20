@@ -28,13 +28,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Log action to audit log
-  const logAuditAction = async (userId: number, action: string, resourceType: string, resourceId: string, details: string) => {
+  const logAuditAction = async (req: any, userId: number, action: string, resourceType: string, resourceId: string, details: string) => {
     await storage.createAuditLog({
-      action,
-      userId,
-      resourceType,
-      resourceId,
-      details
+      severity: 6, // Info level by default
+      user: req.user!.username, // Use username instead of ID
+      action: action,
+      resource: `${resourceType}/${resourceId}`,
+      message: details,
+      complianceStandards: [] // Empty array by default
     });
   };
 
@@ -86,6 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedUser = await storage.updateUser(id, dataToUpdate);
       
       await logAuditAction(
+        req,
         req.user!.id,
         "update_user",
         "user",
@@ -119,6 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const framework = await storage.createComplianceFramework(validatedData);
       
       await logAuditAction(
+        req,
         req.user!.id,
         "create_framework",
         "compliance_framework",
@@ -152,6 +155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const control = await storage.createComplianceControl(validatedData);
       
       await logAuditAction(
+        req,
         req.user!.id,
         "create_control",
         "compliance_control",
@@ -188,6 +192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const control = await storage.updateComplianceControl(id, updateData);
       
       await logAuditAction(
+        req,
         req.user!.id,
         "update_control",
         "compliance_control",
@@ -222,6 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const evidence = await storage.createEvidence(validatedData);
       
       await logAuditAction(
+        req,
         req.user!.id,
         "upload_evidence",
         "evidence",
@@ -254,6 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const site = await storage.createSite(validatedData);
       
       await logAuditAction(
+        req,
         req.user!.id,
         "create_site",
         "site",
@@ -333,6 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const changeRequest = await storage.createChangeRequest(validatedData);
       
       await logAuditAction(
+        req,
         req.user!.id,
         "create_change_request",
         "change_request",
@@ -379,6 +387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       await logAuditAction(
+        req,
         req.user!.id,
         "submit_change_request",
         "change_request",
@@ -423,6 +432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         await logAuditAction(
+          req,
           req.user!.id,
           "reject_security_approval",
           "change_request",
@@ -443,6 +453,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       await logAuditAction(
+        req,
         req.user!.id,
         "approve_security_review",
         "change_request",
@@ -489,6 +500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         await logAuditAction(
+          req,
           req.user!.id,
           "reject_technical_approval",
           "change_request",
@@ -514,6 +526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       await logAuditAction(
+        req,
         req.user!.id,
         "approve_technical_review",
         "change_request",
@@ -558,6 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         await logAuditAction(
+          req,
           req.user!.id,
           "reject_business_approval",
           "change_request",
@@ -578,6 +592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       await logAuditAction(
+        req,
         req.user!.id,
         "approve_business_review",
         "change_request",
@@ -618,6 +633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       await logAuditAction(
+        req,
         req.user!.id,
         "schedule_change_request",
         "change_request",
@@ -667,6 +683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       await logAuditAction(
+        req,
         req.user!.id,
         "implement_change_request",
         "change_request",
@@ -723,6 +740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       await logAuditAction(
+        req,
         req.user!.id,
         verified ? "verify_change_request" : "reject_verification",
         "change_request",
@@ -794,6 +812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       await logAuditAction(
+        req,
         req.user!.id,
         "add_device_to_change_request",
         "change_request_device",
@@ -836,6 +855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.removeDeviceFromChangeRequest(changeRequestId, deviceId);
       
       await logAuditAction(
+        req,
         req.user!.id,
         "remove_device_from_change_request",
         "change_request_device",
@@ -891,6 +911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If task is related to a change request, create an audit log entry for that too
       if (task.relatedChangeRequestId) {
         await logAuditAction(
+          req,
           req.user!.id,
           "create_task_for_change_request",
           "change_request",
@@ -900,6 +921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await logAuditAction(
+        req,
         req.user!.id,
         "create_task",
         "task",
@@ -938,6 +960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If status changed and task is related to a change request, log it
       if (req.body.status && req.body.status !== existingTask.status && existingTask.relatedChangeRequestId) {
         await logAuditAction(
+          req,
           req.user!.id,
           "update_task_status_for_change_request",
           "change_request",
@@ -947,6 +970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await logAuditAction(
+        req,
         req.user!.id,
         "update_task",
         "task",
@@ -976,6 +1000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sprint = await storage.createSprint(validatedData);
       
       await logAuditAction(
+        req,
         req.user!.id,
         "create_sprint",
         "sprint",

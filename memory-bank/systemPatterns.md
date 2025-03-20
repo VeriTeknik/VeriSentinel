@@ -100,6 +100,69 @@ The application follows a client-server architecture with clear separation of co
    - Drag and drop interfaces
    - Infinite scrolling
 
+## Audit Logging
+
+### Severity Levels
+The system uses standardized severity levels for audit logs:
+- 0: Emergency - System is unusable
+- 1: Alert - Action must be taken immediately
+- 2: Critical - Critical conditions
+- 3: Error - Error conditions
+- 4: Warning - Warning conditions
+- 5: Notice - Normal but significant condition
+- 6: Info - Informational messages (default)
+- 7: Debug - Debug-level messages
+
+### Audit Log Structure
+Each audit log entry must include:
+1. `severity`: Number (0-7) indicating importance
+2. `user`: Username of the actor (or "system")
+3. `action`: String describing the action (e.g., "create_device")
+4. `resource`: String identifying affected resource (e.g., "device/123")
+5. `message`: Descriptive message about the action
+6. `complianceStandards`: Array of relevant compliance standards
+
+### Usage Patterns
+```typescript
+// Basic info log
+await req.audit.info("User logged in");
+
+// Log with custom options
+await req.audit.info("Device status updated", {
+  action: "update_device",
+  resource: `device/${id}`
+});
+
+// Log with different severity
+await req.audit.error("Failed to process payment", {
+  action: "process_payment",
+  resource: `payment/${id}`
+});
+
+// Log with compliance standards
+await req.audit.info("Security control updated", {
+  action: "update_control",
+  resource: `control/${id}`,
+  complianceStandards: ["PCI-DSS", "ISO-27001"]
+});
+```
+
+### Implementation Details
+1. Middleware attaches audit logger to requests
+2. TypeScript overloads for flexible logging options
+3. Default severity of 6 (Info) for most operations
+4. Proper validation before database operations
+5. Consistent error handling patterns
+
+### Best Practices
+1. Use descriptive action names (e.g., "create_user", "update_device")
+2. Format resource identifiers as "type/id"
+3. Include relevant context in messages
+4. Set appropriate severity levels
+5. Add compliance standards when applicable
+6. Validate input before logging
+7. Handle errors gracefully
+
 ## Error Handling
 
 1. **Client-Side Errors**
@@ -113,6 +176,30 @@ The application follows a client-server architecture with clear separation of co
    - Validation errors
    - Database errors
    - Authentication errors
+
+### HTTP Status Codes
+- 200: Success
+- 201: Created
+- 204: No Content (successful deletion)
+- 400: Bad Request (validation errors)
+- 401: Unauthorized
+- 403: Forbidden
+- 404: Not Found
+- 500: Internal Server Error
+
+### Error Response Format
+```typescript
+{
+  message: string;
+  errors?: ValidationError[];
+}
+```
+
+### Validation
+1. Use Zod schemas for input validation
+2. Validate before database operations
+3. Return detailed validation errors
+4. Log validation failures appropriately
 
 ## Security Patterns
 
@@ -215,61 +302,228 @@ The application follows a client-server architecture with clear separation of co
 
 ## Authentication & Authorization
 
-### Role-Permission System
+### Middleware
+1. `withAuth`: Ensures user is authenticated
+2. `withPermission`: Checks specific permissions
+3. `attachAuditLogger`: Adds audit logging capability
 
-#### Architecture
-```mermaid
-flowchart TD
-    User[User Interface] --> Hook[usePermissions Hook]
-    Hook --> Matrix[ROLE_PERMISSIONS Matrix]
-    Hook --> Cache[React Query Cache]
-    
-    API[API Endpoint] --> Middleware[Permission Middleware]
-    Middleware --> Matrix
-    Middleware --> Session[Auth Session]
-    
-    Cache --> Sync[Data Synchronization]
-    Session --> Sync
+### User Context
+- Available via `req.user`
+- Includes username and permissions
+- Used for audit logging and authorization
+
+## Database Operations
+
+### CRUD Patterns
+1. Validate input using Zod schemas
+2. Perform database operation
+3. Log action to audit log
+4. Return response to client
+
+### Transaction Handling
+1. Begin transaction
+2. Perform operations
+3. Log to audit log
+4. Commit or rollback transaction
+
+## API Response Patterns
+
+### Success Responses
+1. Return appropriate status code
+2. Include requested data
+3. Use consistent response format
+
+### Error Responses
+1. Use appropriate status code
+2. Include descriptive message
+3. Add validation errors if applicable
+4. Log error appropriately
+
+## Notification System
+
+### Notification Types
+1. **System Notifications**
+   - Audit events
+   - System status changes
+   - Security alerts
+   - Compliance updates
+
+2. **User Notifications**
+   - Task assignments
+   - Change request updates
+   - Approval requests
+   - Deadline reminders
+
+3. **Device Notifications**
+   - Status changes
+   - Maintenance alerts
+   - Security incidents
+   - Performance warnings
+
+### Notification Levels
+```typescript
+type NotificationLevel = "emergency" | "alert" | "critical" | "error" | "warning" | "notice" | "info" | "debug";
+
+interface NotificationOptions {
+  level: NotificationLevel;
+  title: string;
+  message: string;
+  action?: string;
+  resource?: string;
+  metadata?: Record<string, any>;
+  expiration?: Date;
+  recipients?: string[];
+}
 ```
 
-#### Core Components
-1. **Permission Types (`types/permissions.ts`)**
-   - Type-safe permission strings
-   - Role type definition
-   - ROLE_PERMISSIONS matrix
+### Usage Patterns
+```typescript
+// Basic notification
+await notify.info("New task assigned", {
+  title: "Task Assignment",
+  message: "You have been assigned a new task"
+});
 
-2. **Permission Hook (`hooks/use-permissions.ts`)**
-   - Client-side permission checks
-   - Role-based access control
-   - Integration with auth context
+// Emergency notification with recipients
+await notify.emergency("System outage detected", {
+  title: "Critical System Alert",
+  message: "Database connection lost",
+  recipients: ["admin", "dba"],
+  resource: "database/main"
+});
 
-3. **API Middleware (`server/middleware/permissions.ts`)**
-   - Server-side permission validation
-   - Session verification
-   - Error handling
+// Warning with action
+await notify.warning("Device offline", {
+  title: "Device Status Alert",
+  message: "Router-01 is not responding",
+  action: "check_device",
+  resource: "device/router-01"
+});
 
-4. **User Management Interface**
-   - Permission-based UI rendering
-   - Role management controls
-   - Debug information panel
-
-#### Permission Check Flow
-```mermaid
-flowchart TD
-    UI[UI Component] --> Hook[usePermissions Hook]
-    Hook --> Allow{Has Permission?}
-    Allow -->|Yes| Render[Render Component]
-    Allow -->|No| Hide[Hide/Disable Component]
-    
-    Action[User Action] --> API[API Request]
-    API --> Middleware[Permission Middleware]
-    Middleware --> Check{Permission Check}
-    Check -->|Pass| Execute[Execute Request]
-    Check -->|Fail| Error[Return Error]
+// Notice with metadata
+await notify.notice("Maintenance scheduled", {
+  title: "Planned Maintenance",
+  message: "System update scheduled",
+  metadata: {
+    startTime: "2024-03-20T10:00:00Z",
+    duration: "2h",
+    services: ["auth", "api"]
+  }
+});
 ```
 
-#### Data Synchronization
-- React Query for data management
-- Cache invalidation on updates
-- Manual refresh capability
-- Session-based validation
+### Implementation Details
+1. **Notification Service**
+   ```typescript
+   class NotificationService {
+     async send(options: NotificationOptions): Promise<void>;
+     async broadcast(options: NotificationOptions): Promise<void>;
+     async getUnread(userId: string): Promise<Notification[]>;
+     async markAsRead(notificationId: string): Promise<void>;
+     async delete(notificationId: string): Promise<void>;
+   }
+   ```
+
+2. **Delivery Methods**
+   - In-app notifications
+   - WebSocket real-time updates
+   - Email notifications (optional)
+   - SMS alerts (critical only)
+   - Webhook integrations
+
+3. **Storage**
+   - Temporary storage for active notifications
+   - Persistent storage for notification history
+   - User preferences for notification settings
+
+### Best Practices
+1. **Message Format**
+   - Clear and concise titles
+   - Descriptive messages
+   - Actionable information
+   - Relevant metadata
+
+2. **Priority Handling**
+   - Emergency notifications bypass user preferences
+   - Rate limiting for non-critical notifications
+   - Batching of similar notifications
+   - Expiration for time-sensitive alerts
+
+3. **User Experience**
+   - Real-time delivery when possible
+   - Notification grouping
+   - Mark as read/unread
+   - Notification history
+   - Customizable preferences
+
+4. **Error Handling**
+   - Retry logic for failed deliveries
+   - Fallback delivery methods
+   - Error logging and monitoring
+   - Queue management
+
+### Integration Points
+1. **Frontend**
+   ```typescript
+   // React hook for notifications
+   const { notifications, markAsRead, clear } = useNotifications();
+   
+   // Notification component
+   <NotificationCenter
+     notifications={notifications}
+     onMarkAsRead={markAsRead}
+     onClear={clear}
+   />
+   ```
+
+2. **Backend**
+   ```typescript
+   // Express middleware
+   app.use(attachNotificationService);
+   
+   // Route handler
+   app.post("/api/tasks", async (req, res) => {
+     const task = await createTask(req.body);
+     await req.notify.info("Task created", {
+       title: "New Task",
+       message: `Task "${task.title}" has been created`,
+       recipients: [task.assignedTo]
+     });
+   });
+   ```
+
+3. **WebSocket**
+   ```typescript
+   // WebSocket notification handler
+   ws.on("notification", (data) => {
+     notificationService.send({
+       ...data,
+       delivery: "websocket"
+     });
+   });
+   ```
+
+### Notification Flow
+1. **Creation**
+   - Generate notification content
+   - Determine recipients
+   - Set priority and expiration
+   - Add metadata
+
+2. **Processing**
+   - Apply user preferences
+   - Check delivery rules
+   - Handle rate limiting
+   - Prepare for delivery
+
+3. **Delivery**
+   - Send through appropriate channels
+   - Handle delivery confirmation
+   - Retry on failure
+   - Update notification status
+
+4. **Management**
+   - Store in notification history
+   - Handle read/unread status
+   - Apply expiration rules
+   - Clean up old notifications

@@ -310,20 +310,22 @@ export const insertPciDssControlSchema = createInsertSchema(pciDssControls).pick
 // Audit log model
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
-  action: text("action").notNull(),
-  userId: integer("user_id").notNull(),
-  resourceType: text("resource_type").notNull(),
-  resourceId: text("resource_id").notNull(),
-  details: text("details"),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
+  severity: integer("severity").notNull(), // 0-7 severity levels
+  user: text("user").notNull(), // User identifier (email or username)
+  action: text("action").notNull(),
+  resource: text("resource").notNull(), // Full resource path
+  message: text("message").notNull(),
+  complianceStandards: text("compliance_standards").array(), // Array of compliance standards
 });
 
 export const insertAuditLogSchema = createInsertSchema(auditLogs).pick({
+  severity: true,
+  user: true,
   action: true,
-  userId: true,
-  resourceType: true,
-  resourceId: true,
-  details: true,
+  resource: true,
+  message: true,
+  complianceStandards: true,
 });
 
 // Export types
