@@ -30,13 +30,24 @@ export default function HardwareInventory() {
   const { user, isLoading: isLoadingUser } = useAuth();
   const { toast } = useToast();
 
-  // Fetch sites and devices
+  // Fetch sites and devices with polling
   const { data: sites, isLoading: isLoadingSites } = useQuery<Site[]>({
-    queryKey: ['/api/sites']
+    queryKey: ['/api/sites'],
+    // Poll every 10 seconds
+    refetchInterval: 10000,
+    // Keep polling even when the window loses focus
+    refetchIntervalInBackground: true
   });
 
   const { data: devices, isLoading: isLoadingDevices } = useQuery<Device[]>({
-    queryKey: ['/api/devices']
+    queryKey: ['/api/devices'],
+    // Poll every 10 seconds
+    refetchInterval: 10000,
+    // Keep polling even when the window loses focus
+    refetchIntervalInBackground: true,
+    // Optimize network usage by only refetching if data has changed
+    select: (data) => data,
+    staleTime: 5000
   });
 
   // Site form schema

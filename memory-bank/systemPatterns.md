@@ -31,6 +31,7 @@ The application follows a client-server architecture with clear separation of co
    - React Query for server state
    - Local state with React hooks
    - Form state with React Hook Form
+   - Polling-based real-time updates
 
 3. **Routing Pattern**
    - Client-side routing with Wouter
@@ -41,6 +42,13 @@ The application follows a client-server architecture with clear separation of co
    - React Query for data fetching and caching
    - Optimistic updates
    - Error boundary handling
+
+5. **Real-time Data Patterns**
+   - Polling with React Query
+   - Configurable polling intervals
+   - Background polling for inactive tabs
+   - Optimistic updates for better UX
+   - Stale-time configuration for network optimization
 
 ### Backend Patterns
 
@@ -132,12 +140,20 @@ The application follows a client-server architecture with clear separation of co
    - Lazy loading
    - Asset optimization
    - Caching strategies
+   - Optimized polling intervals
 
 2. **Server-Side Performance**
    - Connection pooling
    - Query optimization
    - Response caching
    - Rate limiting
+
+3. **Real-time Data Management**
+   - Configurable polling intervals
+   - Background polling optimization
+   - Network usage optimization with stale-time
+   - Fallback mechanisms for network issues
+   - Balance between data freshness and server load
 
 ## Testing Patterns
 
