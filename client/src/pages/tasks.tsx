@@ -26,12 +26,17 @@ interface TaskCardProps {
 }
 
 const TaskCard = ({ task, onStatusChange, isPending }: TaskCardProps) => {
+  const { data: changeRequests } = useQuery<ChangeRequest[]>({
+    queryKey: ['/api/change-requests']
+  });
+  
   const getSeverityClass = (task: Task) => {
-    // Using relatedControlId as a proxy for severity in this example
-    if (task.relatedControlId) {
+    if (task.priority === "critical") {
       return "bg-error-100 text-error-800";
-    } else if (task.dueDate && new Date(task.dueDate) < new Date()) {
+    } else if (task.priority === "high") {
       return "bg-warning-100 text-warning-800";
+    } else if (task.priority === "medium") {
+      return "bg-info-100 text-info-800";
     } else {
       return "bg-success-100 text-success-800";
     }
@@ -49,19 +54,48 @@ const TaskCard = ({ task, onStatusChange, isPending }: TaskCardProps) => {
         return currentStatus;
     }
   };
+  
+  const getTaskType = () => {
+    if (task.relatedChangeRequestId) {
+      return "Change Request";
+    } else if (task.relatedControlId) {
+      return "Compliance";
+    } else {
+      return "General";
+    }
+  };
+  
+  const getRelatedChangeRequest = () => {
+    if (!task.relatedChangeRequestId || !changeRequests) return null;
+    return changeRequests.find(cr => cr.id === task.relatedChangeRequestId);
+  };
+  
+  const relatedChangeRequest = getRelatedChangeRequest();
 
   return (
     <div className="bg-white p-3 rounded-md shadow-sm border border-gray-200">
       <div className="flex items-center justify-between mb-2">
         <span className={`px-2 py-1 text-xs rounded-full ${getSeverityClass(task)} font-medium`}>
-          {task.relatedControlId ? "High" : "Medium"}
+          {task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : "Medium"}
         </span>
         <span className="text-xs text-gray-500">
-          {task.relatedControlId ? "Compliance" : "General"}
+          {getTaskType()}
         </span>
       </div>
       <h4 className="text-sm font-medium mb-1">{task.title}</h4>
-      <p className="text-xs text-gray-500 mb-3">{task.description}</p>
+      <p className="text-xs text-gray-500 mb-2">{task.description}</p>
+      
+      {relatedChangeRequest && (
+        <div className="mb-2 p-1 bg-gray-50 rounded text-xs border border-gray-200">
+          <div className="flex justify-between items-center">
+            <span className="font-medium">CR: {relatedChangeRequest.title}</span>
+            <Badge variant="outline" className="text-xs">
+              {relatedChangeRequest.status.replace(/_/g, ' ')}
+            </Badge>
+          </div>
+        </div>
+      )}
+      
       <div className="flex items-center justify-between">
         <span className="text-xs text-gray-500">
           {task.dueDate 
@@ -110,6 +144,10 @@ export default function Tasks() {
   const { data: users } = useQuery<User[]>({
     queryKey: ['/api/users']
   });
+  
+  const { data: changeRequests } = useQuery<ChangeRequest[]>({
+    queryKey: ['/api/change-requests']
+  });
 
   // Task form schema
   const taskFormSchema = z.object({
@@ -118,8 +156,11 @@ export default function Tasks() {
     status: z.string().min(1, "Status is required"),
     assignedTo: z.string().optional().transform(val => val ? parseInt(val) : undefined),
     relatedControlId: z.string().optional().transform(val => val ? parseInt(val) : undefined),
+    relatedChangeRequestId: z.string().optional().transform(val => val ? parseInt(val) : undefined),
+    priority: z.string().default("medium"),
     dueDate: z.string().optional().transform(val => val ? new Date(val) : undefined),
     sprintId: z.string().optional().transform(val => val ? parseInt(val) : undefined),
+    createdBy: z.number().optional(),
   });
 
   const form = useForm<z.infer<typeof taskFormSchema>>({
@@ -128,6 +169,8 @@ export default function Tasks() {
       title: "",
       description: "",
       status: "todo",
+      priority: "medium",
+      createdBy: user?.id,
     },
   });
 
@@ -347,23 +390,75 @@ export default function Tasks() {
                     />
                   </div>
                   
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="priority"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Priority</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select priority" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="low">Low</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="high">High</SelectItem>
+                              <SelectItem value="critical">Critical</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  
+                    <FormField
+                      control={form.control}
+                      name="sprintId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sprint</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value?.toString()}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select sprint" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="">No Sprint</SelectItem>
+                              {sprints?.map(sprint => (
+                                <SelectItem key={sprint.id} value={sprint.id.toString()}>
+                                  {sprint.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
                   <FormField
                     control={form.control}
-                    name="sprintId"
+                    name="relatedChangeRequestId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Sprint</FormLabel>
+                        <FormLabel>Related Change Request</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value?.toString()}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select sprint" />
+                              <SelectValue placeholder="Select change request" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">No Sprint</SelectItem>
-                            {sprints?.map(sprint => (
-                              <SelectItem key={sprint.id} value={sprint.id.toString()}>
-                                {sprint.name}
+                            <SelectItem value="">None</SelectItem>
+                            {changeRequests?.map(request => (
+                              <SelectItem key={request.id} value={request.id.toString()}>
+                                {request.title} - {request.status}
                               </SelectItem>
                             ))}
                           </SelectContent>

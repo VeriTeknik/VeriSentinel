@@ -583,7 +583,12 @@ export class MemStorage implements IStorage {
       dueDate: task.dueDate || null,
       assignedTo: task.assignedTo || null,
       relatedControlId: task.relatedControlId || null,
-      sprintId: task.sprintId || null
+      relatedChangeRequestId: task.relatedChangeRequestId || null,
+      priority: task.priority || "medium",
+      sprintId: task.sprintId || null,
+      createdBy: task.createdBy || null,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     this.taskData.set(id, newTask);
     return newTask;
@@ -597,7 +602,11 @@ export class MemStorage implements IStorage {
     const existingTask = this.taskData.get(id);
     if (!existingTask) return undefined;
     
-    const updatedTask = { ...existingTask, ...task };
+    const updatedTask = { 
+      ...existingTask, 
+      ...task,
+      updatedAt: new Date() 
+    };
     this.taskData.set(id, updatedTask);
     return updatedTask;
   }
@@ -967,7 +976,13 @@ export class PostgresStorage implements IStorage {
 
   // Task management
   async createTask(task: InsertTask): Promise<Task> {
-    const result = await db.insert(tasks).values(task).returning();
+    const taskWithDefaults = {
+      ...task,
+      priority: task.priority || "medium",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    const result = await db.insert(tasks).values(taskWithDefaults).returning();
     return result[0];
   }
 
@@ -977,8 +992,12 @@ export class PostgresStorage implements IStorage {
   }
 
   async updateTask(id: number, task: Partial<InsertTask>): Promise<Task | undefined> {
+    const taskWithUpdatedAt = {
+      ...task,
+      updatedAt: new Date()
+    };
     const result = await db.update(tasks)
-      .set(task)
+      .set(taskWithUpdatedAt)
       .where(eq(tasks.id, id))
       .returning();
     return result[0];
