@@ -92,23 +92,121 @@ export default function ChangeManagement() {
     },
   });
 
-  // Approve change request mutation
-  const approveRequestMutation = useMutation({
+  // Submit for review mutation
+  const submitRequestMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await apiRequest("PUT", `/api/change-requests/${id}/approve`, {});
+      const res = await apiRequest("PUT", `/api/change-requests/${id}/submit`, {});
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/change-requests'] });
       setDetailsOpen(false);
       toast({
-        title: "Change Request Approved",
-        description: "The change request has been approved successfully.",
+        title: "Change Request Submitted",
+        description: "The change request has been submitted for review.",
       });
     },
     onError: (error) => {
       toast({
-        title: "Failed to Approve Change Request",
+        title: "Failed to Submit Change Request",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Security approval mutation
+  const securityApprovalMutation = useMutation({
+    mutationFn: async ({ id, approved, comments }: { id: number, approved: boolean, comments?: string }) => {
+      const res = await apiRequest("PUT", `/api/change-requests/${id}/security-approval`, { approved, comments });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/change-requests'] });
+      setDetailsOpen(false);
+      toast({
+        title: data.securityApprovalStatus === "approved" ? "Security Approval Granted" : "Security Approval Rejected",
+        description: data.securityApprovalStatus === "approved" 
+          ? "The change request has passed security review." 
+          : "The change request has been rejected during security review.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Process Security Approval",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Technical approval mutation
+  const technicalApprovalMutation = useMutation({
+    mutationFn: async ({ id, approved, comments }: { id: number, approved: boolean, comments?: string }) => {
+      const res = await apiRequest("PUT", `/api/change-requests/${id}/technical-approval`, { approved, comments });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/change-requests'] });
+      setDetailsOpen(false);
+      toast({
+        title: data.technicalApprovalStatus === "approved" ? "Technical Approval Granted" : "Technical Approval Rejected",
+        description: data.technicalApprovalStatus === "approved" 
+          ? "The change request has passed technical review." 
+          : "The change request has been rejected during technical review.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Process Technical Approval",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Business approval mutation
+  const businessApprovalMutation = useMutation({
+    mutationFn: async ({ id, approved, comments }: { id: number, approved: boolean, comments?: string }) => {
+      const res = await apiRequest("PUT", `/api/change-requests/${id}/business-approval`, { approved, comments });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/change-requests'] });
+      setDetailsOpen(false);
+      toast({
+        title: data.businessApprovalStatus === "approved" ? "Business Approval Granted" : "Business Approval Rejected",
+        description: data.businessApprovalStatus === "approved" 
+          ? "The change request has been approved by business stakeholders." 
+          : "The change request has been rejected by business stakeholders.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Process Business Approval",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Schedule change mutation
+  const scheduleChangeMutation = useMutation({
+    mutationFn: async ({ id, scheduledFor }: { id: number, scheduledFor: string }) => {
+      const res = await apiRequest("PUT", `/api/change-requests/${id}/schedule`, { scheduledFor });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/change-requests'] });
+      setDetailsOpen(false);
+      toast({
+        title: "Change Request Scheduled",
+        description: "The change request has been scheduled for implementation.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Schedule Change Request",
         description: error.message,
         variant: "destructive",
       });
@@ -117,8 +215,8 @@ export default function ChangeManagement() {
 
   // Implement change request mutation
   const implementRequestMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest("PUT", `/api/change-requests/${id}/implement`, {});
+    mutationFn: async ({ id, implementationNotes }: { id: number, implementationNotes?: string }) => {
+      const res = await apiRequest("PUT", `/api/change-requests/${id}/implement`, { implementationNotes });
       return res.json();
     },
     onSuccess: () => {
@@ -138,16 +236,61 @@ export default function ChangeManagement() {
     },
   });
 
+  // Verify change request mutation
+  const verifyRequestMutation = useMutation({
+    mutationFn: async ({ id, verified, verificationNotes }: { id: number, verified: boolean, verificationNotes?: string }) => {
+      const res = await apiRequest("PUT", `/api/change-requests/${id}/verify`, { verified, verificationNotes });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/change-requests'] });
+      setDetailsOpen(false);
+      toast({
+        title: data.verificationStatus === "verified" ? "Change Request Verified" : "Verification Failed",
+        description: data.verificationStatus === "verified" 
+          ? "The change has been verified and closed." 
+          : "The verification failed. The change requires further implementation.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Verify Change Request",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreateRequest = (data: z.infer<typeof requestFormSchema>) => {
     createRequestMutation.mutate(data);
   };
 
-  const handleApproveRequest = (id: number) => {
-    approveRequestMutation.mutate(id);
+  const handleSubmitRequest = (id: number) => {
+    submitRequestMutation.mutate(id);
   };
 
-  const handleImplementRequest = (id: number) => {
-    implementRequestMutation.mutate(id);
+  const handleSecurityApproval = (id: number, approved: boolean, comments?: string) => {
+    securityApprovalMutation.mutate({ id, approved, comments });
+  };
+
+  const handleTechnicalApproval = (id: number, approved: boolean, comments?: string) => {
+    technicalApprovalMutation.mutate({ id, approved, comments });
+  };
+
+  const handleBusinessApproval = (id: number, approved: boolean, comments?: string) => {
+    businessApprovalMutation.mutate({ id, approved, comments });
+  };
+
+  const handleScheduleChange = (id: number, scheduledFor: string) => {
+    scheduleChangeMutation.mutate({ id, scheduledFor });
+  };
+
+  const handleImplementRequest = (id: number, implementationNotes?: string) => {
+    implementRequestMutation.mutate({ id, implementationNotes });
+  };
+
+  const handleVerifyRequest = (id: number, verified: boolean, verificationNotes?: string) => {
+    verifyRequestMutation.mutate({ id, verified, verificationNotes });
   };
 
   const handleViewDetails = (request: ChangeRequest) => {
@@ -164,16 +307,28 @@ export default function ChangeManagement() {
   // Status badge
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "pending":
-        return <Badge className="bg-warning-100 text-warning-800">Pending Approval</Badge>;
+      case "draft":
+        return <Badge className="bg-gray-100 text-gray-800">Draft</Badge>;
+      case "pending_security_review":
+        return <Badge className="bg-warning-100 text-warning-800">Security Review</Badge>;
+      case "pending_technical_review":
+        return <Badge className="bg-warning-100 text-warning-800">Technical Review</Badge>;
+      case "pending_business_review":
+        return <Badge className="bg-warning-100 text-warning-800">Business Review</Badge>;
       case "approved":
         return <Badge className="bg-success-100 text-success-800">Approved</Badge>;
+      case "scheduled":
+        return <Badge className="bg-blue-100 text-blue-800">Scheduled</Badge>;
       case "implemented":
         return <Badge className="bg-info-100 text-info-800">Implemented</Badge>;
+      case "verified":
+        return <Badge className="bg-emerald-100 text-emerald-800">Verified</Badge>;
+      case "closed":
+        return <Badge className="bg-purple-100 text-purple-800">Closed</Badge>;
       case "rejected":
         return <Badge className="bg-error-100 text-error-800">Rejected</Badge>;
       default:
-        return <Badge>{status}</Badge>;
+        return <Badge>{status.replace("_", " ")}</Badge>;
     }
   };
 
@@ -463,11 +618,15 @@ export default function ChangeManagement() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="all">All Requests</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="draft">Draft</TabsTrigger>
+          <TabsTrigger value="pending_security_review">Security Review</TabsTrigger>
+          <TabsTrigger value="pending_technical_review">Technical Review</TabsTrigger>
           <TabsTrigger value="approved">Approved</TabsTrigger>
+          <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
           <TabsTrigger value="implemented">Implemented</TabsTrigger>
+          <TabsTrigger value="closed">Closed</TabsTrigger>
           <TabsTrigger value="rejected">Rejected</TabsTrigger>
         </TabsList>
       </Tabs>
@@ -548,7 +707,20 @@ export default function ChangeManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Status</h3>
-                  <p className="text-base">{selectedRequest.status.charAt(0).toUpperCase() + selectedRequest.status.slice(1)}</p>
+                  <div className="flex items-center">
+                    {getStatusBadge(selectedRequest.status)}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Type</h3>
+                  <p className="text-base capitalize">{selectedRequest.type}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Risk Level</h3>
+                  <p className="text-base capitalize">{selectedRequest.riskLevel}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Requested By</h3>
@@ -560,7 +732,6 @@ export default function ChangeManagement() {
                 <h3 className="text-sm font-medium text-gray-500">Request Date</h3>
                 <p className="text-base">
                   {new Date(selectedRequest.requestedAt).toLocaleDateString('en-US', {
-                    weekday: 'long',
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
@@ -570,12 +741,11 @@ export default function ChangeManagement() {
                 </p>
               </div>
               
-              {selectedRequest.approvedAt && (
+              {selectedRequest.scheduledFor && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500">Approved Date</h3>
+                  <h3 className="text-sm font-medium text-gray-500">Scheduled For</h3>
                   <p className="text-base">
-                    {new Date(selectedRequest.approvedAt).toLocaleDateString('en-US', {
-                      weekday: 'long',
+                    {new Date(selectedRequest.scheduledFor).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',
@@ -591,7 +761,6 @@ export default function ChangeManagement() {
                   <h3 className="text-sm font-medium text-gray-500">Implemented Date</h3>
                   <p className="text-base">
                     {new Date(selectedRequest.implementedAt).toLocaleDateString('en-US', {
-                      weekday: 'long',
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',
@@ -602,6 +771,54 @@ export default function ChangeManagement() {
                 </div>
               )}
               
+              {/* Show firewall details if this is a firewall change */}
+              {selectedRequest.type === "firewall" && (
+                <div className="border border-gray-200 rounded-md p-4">
+                  <h3 className="text-md font-medium mb-3 border-b pb-2">Firewall Rule Details</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-3">
+                    {selectedRequest.sourceIp && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-500">Source IP/Network</h4>
+                        <p className="text-sm">{selectedRequest.sourceIp}</p>
+                      </div>
+                    )}
+                    
+                    {selectedRequest.destinationIp && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-500">Destination IP/Network</h4>
+                        <p className="text-sm">{selectedRequest.destinationIp}</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-3">
+                    {selectedRequest.portServices && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-500">Ports/Services</h4>
+                        <p className="text-sm">{selectedRequest.portServices}</p>
+                      </div>
+                    )}
+                    
+                    {selectedRequest.action && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-500">Action</h4>
+                        <p className="text-sm capitalize">{selectedRequest.action}</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {selectedRequest.firewallRules && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500">Rule Configuration</h4>
+                      <div className="p-2 bg-gray-50 rounded-md border border-gray-200 mt-1">
+                        <p className="text-sm whitespace-pre-wrap font-mono">{selectedRequest.firewallRules}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Description</h3>
                 <div className="mt-1 p-4 bg-gray-50 rounded-md border border-gray-200">
@@ -609,53 +826,280 @@ export default function ChangeManagement() {
                 </div>
               </div>
               
-              {selectedRequest.status === "pending" && (user?.role === "admin" || user?.role === "approver") && (
-                <div className="pt-4 border-t border-gray-200">
-                  <Alert className="mb-4">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Approval Required</AlertTitle>
-                    <AlertDescription>
-                      This change request requires your approval. Review the details carefully before proceeding.
-                    </AlertDescription>
-                  </Alert>
-                  <Button 
-                    className="w-full" 
-                    onClick={() => handleApproveRequest(selectedRequest.id)}
-                    disabled={approveRequestMutation.isPending}
-                  >
-                    {approveRequestMutation.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                    )}
-                    Approve Request
-                  </Button>
+              {selectedRequest.affectedSystems && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Affected Systems</h3>
+                  <p className="text-base">{selectedRequest.affectedSystems}</p>
                 </div>
               )}
               
-              {selectedRequest.status === "approved" && (user?.role === "admin" || user?.role === "implementer") && (
-                <div className="pt-4 border-t border-gray-200">
-                  <Alert className="mb-4">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Implementation Required</AlertTitle>
-                    <AlertDescription>
-                      This change request has been approved and is ready for implementation.
-                    </AlertDescription>
-                  </Alert>
-                  <Button 
-                    className="w-full" 
-                    onClick={() => handleImplementRequest(selectedRequest.id)}
-                    disabled={implementRequestMutation.isPending}
-                  >
-                    {implementRequestMutation.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                    )}
-                    Mark as Implemented
-                  </Button>
+              {selectedRequest.backoutPlan && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Backout Plan</h3>
+                  <div className="mt-1 p-4 bg-gray-50 rounded-md border border-gray-200">
+                    <p className="text-sm whitespace-pre-wrap">{selectedRequest.backoutPlan}</p>
+                  </div>
                 </div>
               )}
+              
+              {/* Action Section: Role-specific actions based on workflow state */}
+              <div className="pt-4 border-t border-gray-200">
+                {/* Draft - Submit action */}
+                {selectedRequest.status === "draft" && (selectedRequest.requestedBy === user?.id || user?.role === "admin") && (
+                  <div>
+                    <Alert className="mb-4">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Draft Request</AlertTitle>
+                      <AlertDescription>
+                        This change request is still in draft mode. Submit it to start the approval process.
+                      </AlertDescription>
+                    </Alert>
+                    <Button 
+                      className="w-full" 
+                      onClick={() => handleSubmitRequest(selectedRequest.id)}
+                      disabled={submitRequestMutation.isPending}
+                    >
+                      {submitRequestMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Submit for Review
+                    </Button>
+                  </div>
+                )}
+                
+                {/* Security Review - Security team approval */}
+                {selectedRequest.status === "pending_security_review" && 
+                  (user?.role === "admin" || user?.role === "ciso" || user?.role === "security_manager") && (
+                  <div>
+                    <Alert className="mb-4">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Security Review Required</AlertTitle>
+                      <AlertDescription>
+                        This change request requires security team review before proceeding.
+                      </AlertDescription>
+                    </Alert>
+                    <div className="flex gap-2">
+                      <Button 
+                        className="flex-1" 
+                        variant="destructive"
+                        onClick={() => handleSecurityApproval(selectedRequest.id, false)}
+                        disabled={securityApprovalMutation.isPending}
+                      >
+                        {securityApprovalMutation.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <XCircle className="mr-2 h-4 w-4" />
+                        )}
+                        Reject
+                      </Button>
+                      <Button 
+                        className="flex-1" 
+                        onClick={() => handleSecurityApproval(selectedRequest.id, true)}
+                        disabled={securityApprovalMutation.isPending}
+                      >
+                        {securityApprovalMutation.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                        )}
+                        Approve
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Technical Review - Technical team approval */}
+                {selectedRequest.status === "pending_technical_review" && 
+                  (user?.role === "admin" || user?.role === "cto" || user?.role === "network_admin") && (
+                  <div>
+                    <Alert className="mb-4">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Technical Review Required</AlertTitle>
+                      <AlertDescription>
+                        This change request requires technical team review before proceeding.
+                      </AlertDescription>
+                    </Alert>
+                    <div className="flex gap-2">
+                      <Button 
+                        className="flex-1" 
+                        variant="destructive"
+                        onClick={() => handleTechnicalApproval(selectedRequest.id, false)}
+                        disabled={technicalApprovalMutation.isPending}
+                      >
+                        {technicalApprovalMutation.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <XCircle className="mr-2 h-4 w-4" />
+                        )}
+                        Reject
+                      </Button>
+                      <Button 
+                        className="flex-1" 
+                        onClick={() => handleTechnicalApproval(selectedRequest.id, true)}
+                        disabled={technicalApprovalMutation.isPending}
+                      >
+                        {technicalApprovalMutation.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                        )}
+                        Approve
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Business Review - Business approval (admin only) */}
+                {selectedRequest.status === "pending_business_review" && user?.role === "admin" && (
+                  <div>
+                    <Alert className="mb-4">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Business Review Required</AlertTitle>
+                      <AlertDescription>
+                        This high-risk change request requires business approval before proceeding.
+                      </AlertDescription>
+                    </Alert>
+                    <div className="flex gap-2">
+                      <Button 
+                        className="flex-1" 
+                        variant="destructive"
+                        onClick={() => handleBusinessApproval(selectedRequest.id, false)}
+                        disabled={businessApprovalMutation.isPending}
+                      >
+                        {businessApprovalMutation.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <XCircle className="mr-2 h-4 w-4" />
+                        )}
+                        Reject
+                      </Button>
+                      <Button 
+                        className="flex-1" 
+                        onClick={() => handleBusinessApproval(selectedRequest.id, true)}
+                        disabled={businessApprovalMutation.isPending}
+                      >
+                        {businessApprovalMutation.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                        )}
+                        Approve
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Approved - Schedule for implementation */}
+                {selectedRequest.status === "approved" && (user?.role === "admin" || user?.role === "implementer") && (
+                  <div>
+                    <Alert className="mb-4">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Schedule Implementation</AlertTitle>
+                      <AlertDescription>
+                        This change request has been approved and needs to be scheduled.
+                      </AlertDescription>
+                    </Alert>
+                    <Button 
+                      className="w-full" 
+                      onClick={() => {
+                        const nextWeek = new Date();
+                        nextWeek.setDate(nextWeek.getDate() + 7);
+                        // Just default to a week from now for simplicity
+                        handleScheduleChange(selectedRequest.id, nextWeek.toISOString());
+                      }}
+                      disabled={scheduleChangeMutation.isPending}
+                    >
+                      {scheduleChangeMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Schedule for Implementation
+                    </Button>
+                  </div>
+                )}
+                
+                {/* Scheduled - Implement */}
+                {selectedRequest.status === "scheduled" && 
+                  (user?.role === "admin" || 
+                   user?.role === "implementer" || 
+                   (selectedRequest.type === "firewall" && user?.role === "network_admin")) && (
+                  <div>
+                    <Alert className="mb-4">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Ready for Implementation</AlertTitle>
+                      <AlertDescription>
+                        This change request is scheduled and ready to be implemented.
+                      </AlertDescription>
+                    </Alert>
+                    <Button 
+                      className="w-full" 
+                      onClick={() => handleImplementRequest(selectedRequest.id, "Change implemented according to plan.")}
+                      disabled={implementRequestMutation.isPending}
+                    >
+                      {implementRequestMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                      )}
+                      Mark as Implemented
+                    </Button>
+                  </div>
+                )}
+                
+                {/* Implemented - Verify (Controller role) */}
+                {selectedRequest.status === "implemented" && 
+                  (user?.role === "admin" || user?.role === "auditor") && 
+                  selectedRequest.implementerId !== user?.id && (
+                  <div>
+                    <Alert className="mb-4">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Verification Required (Controller)</AlertTitle>
+                      <AlertDescription>
+                        This change request has been implemented and requires verification from a controller.
+                      </AlertDescription>
+                    </Alert>
+                    <div className="flex gap-2">
+                      <Button 
+                        className="flex-1" 
+                        variant="destructive"
+                        onClick={() => handleVerifyRequest(selectedRequest.id, false, "Implementation verification failed.")}
+                        disabled={verifyRequestMutation.isPending}
+                      >
+                        {verifyRequestMutation.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <XCircle className="mr-2 h-4 w-4" />
+                        )}
+                        Fail Verification
+                      </Button>
+                      <Button 
+                        className="flex-1" 
+                        onClick={() => handleVerifyRequest(selectedRequest.id, true, "Implementation successfully verified.")}
+                        disabled={verifyRequestMutation.isPending}
+                      >
+                        {verifyRequestMutation.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                        )}
+                        Verify & Close
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Closed or Rejected - Show closure message */}
+                {(selectedRequest.status === "closed" || selectedRequest.status === "rejected") && (
+                  <Alert>
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertTitle>{selectedRequest.status === "closed" ? "Change Complete" : "Change Rejected"}</AlertTitle>
+                    <AlertDescription>
+                      {selectedRequest.status === "closed" 
+                        ? "This change request has been successfully implemented and verified." 
+                        : "This change request was rejected during the approval process."}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
