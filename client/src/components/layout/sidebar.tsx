@@ -1,4 +1,4 @@
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { 
   LayoutDashboard, 
@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 export function Sidebar() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { user, logoutMutation } = useAuth();
 
   const handleLogout = () => {
@@ -45,16 +45,18 @@ export function Sidebar() {
         
         <div className="mt-8 space-y-1">
           {navItems.map((item) => (
-            <Link key={item.path} href={item.path}>
-              <div className={`flex items-center px-4 py-2 rounded-md cursor-pointer ${
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={`flex items-center px-4 py-2 rounded-md cursor-pointer w-full text-left ${
                 location === item.path 
                   ? "bg-gray-800 text-white" 
                   : "text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-              }`}>
-                {item.icon}
-                {item.label}
-              </div>
-            </Link>
+              }`}
+            >
+              {item.icon}
+              {item.label}
+            </button>
           ))}
         </div>
       </div>

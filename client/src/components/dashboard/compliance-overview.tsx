@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'wouter';
+import { useLocation } from 'wouter';
 import { ComplianceFramework, ComplianceControl } from '@shared/schema';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState } from 'react';
 
 export function ComplianceOverview() {
   const [selectedFramework, setSelectedFramework] = useState<string>("all");
+  const [_, navigate] = useLocation();
   
   const { data: frameworks, isLoading: isLoadingFrameworks } = useQuery<ComplianceFramework[]>({ 
     queryKey: ['/api/compliance-frameworks'] 
@@ -140,11 +141,12 @@ export function ComplianceOverview() {
         </div>
       </div>
       <div className="bg-gray-50 px-5 py-3 border-t border-gray-200">
-        <Link href="/compliance">
-          <a className="text-sm font-medium text-primary-600 hover:text-primary-700">
-            View all compliance controls →
-          </a>
-        </Link>
+        <button 
+          onClick={() => navigate('/compliance')} 
+          className="text-sm font-medium text-primary-600 hover:text-primary-700 border-none bg-transparent p-0"
+        >
+          View all compliance controls →
+        </button>
       </div>
     </div>
   );
