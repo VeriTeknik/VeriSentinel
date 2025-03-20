@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'wouter';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { Task } from '@shared/schema';
@@ -59,6 +59,7 @@ const KanbanColumn = ({ title, count, tasks }: KanbanColumnProps) => {
 };
 
 export function TaskManagement() {
+  const [_, navigate] = useLocation();
   const { data: tasks, isLoading } = useQuery<Task[]>({ 
     queryKey: ['/api/tasks'] 
   });
@@ -98,11 +99,12 @@ export function TaskManagement() {
         </div>
       </div>
       <div className="bg-gray-50 px-5 py-3 border-t border-gray-200">
-        <Link href="/tasks">
-          <a className="text-sm font-medium text-primary-600 hover:text-primary-700">
-            View all tasks →
-          </a>
-        </Link>
+        <button 
+          onClick={() => navigate('/tasks')} 
+          className="text-sm font-medium text-primary-600 hover:text-primary-700 border-none bg-transparent p-0"
+        >
+          View all tasks →
+        </button>
       </div>
     </div>
   );
