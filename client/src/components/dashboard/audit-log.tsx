@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 export function AuditLogComponent() {
+  const [_, navigate] = useLocation();
   const { data: auditLogs, isLoading } = useQuery<AuditLog[]>({ 
     queryKey: ['/api/audit-logs'] 
   });
@@ -67,13 +68,13 @@ export function AuditLogComponent() {
     }
   };
 
-  const formatActionText = (log: AuditLog) => {
+  const formatActionText = (log: any) => {
     const action = log.action.replace(/_/g, ' ');
     return `${action} ${log.resourceType} ${log.resourceId}`;
   };
 
-  const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp);
+  const formatTime = (timestamp: string | Date) => {
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.round(diffMs / 60000);
@@ -92,14 +93,27 @@ export function AuditLogComponent() {
     }
   };
 
+  // Define a type for demo log data
+  type DemoAuditLog = {
+    id: number;
+    action: string;
+    userId: number;
+    resourceType: string;
+    resourceId: string;
+    details: string;
+    timestamp: string;
+  };
+
   // Show either actual audit logs, or demo data if we don't have access to the audit logs API
-  const displayLogs = auditLogs && auditLogs.length > 0 ? auditLogs.slice(0, 5) : [
+  const demoLogs: DemoAuditLog[] = [
     { id: 1, action: 'update_control', userId: 1, resourceType: 'compliance_control', resourceId: 'PCI-DSS-8.2.3', details: 'Updated compliance control', timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString() },
     { id: 2, action: 'approve_change_request', userId: 2, resourceType: 'change_request', resourceId: 'CR-1233', details: 'Approved change request', timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
     { id: 3, action: 'create_task', userId: 3, resourceType: 'task', resourceId: 'Review access control logs', details: 'Created a new task', timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() },
     { id: 4, action: 'unauthorized_access', userId: 0, resourceType: 'system', resourceId: '192.168.1.53', details: 'Detected unauthorized access attempt', timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString() },
     { id: 5, action: 'upload_evidence', userId: 2, resourceType: 'compliance_control', resourceId: 'ISO-A.12.4.1', details: 'Uploaded evidence for compliance control', timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() }
   ];
+  
+  const displayLogs: (AuditLog | DemoAuditLog)[] = auditLogs && auditLogs.length > 0 ? auditLogs.slice(0, 5) : demoLogs;
 
   return (
     <div className="bg-white shadow-sm rounded-lg">
