@@ -1,21 +1,198 @@
-# System Patterns - Verisentinel
+# System Patterns
 
 ## Architecture Overview
-Verisentinel follows a monolithic application architecture, built with a Next.js frontend and a Node.js backend. PostgreSQL is used as the primary database for storing all structured data.
 
-## Key Technical Decisions
-- **Frontend Framework:** Next.js (React) – chosen for its server-side rendering capabilities, routing features, and developer experience.
-- **UI Component Library:** shadcn/ui – selected for consistent styling, accessibility, and ease of customization.
-- **Backend Language:** TypeScript – provides static typing and improved code maintainability.
-- **Database:** PostgreSQL – a robust and reliable relational database with strong support for data integrity and security.
-- **Data Fetching & Caching:** TanStack React Query - simplifies data fetching, caching, and state management in the frontend.
+The application follows a client-server architecture with clear separation of concerns:
 
-## Component Relationships
-- The Next.js frontend communicates with the Node.js backend via RESTful APIs.
-- The backend interacts with PostgreSQL to store and retrieve data.
-- Authentication is handled using NextAuth.js.
+### Client-Side Architecture
+- Single Page Application (SPA) built with React and Vite
+- Component-based structure with shadcn/ui
+- Client-side routing with Wouter
+- State management with React Query and local state
+- Form handling with React Hook Form and Zod validation
+
+### Server-Side Architecture
+- Express.js server with TypeScript
+- RESTful API endpoints
+- Session-based authentication with Passport.js
+- PostgreSQL database with Drizzle ORM
+- WebSocket support for real-time features
 
 ## Design Patterns
-- **Repository Pattern:** Used for abstracting database access logic.
-- **Component-Based Architecture:** Frontend built with reusable React components.
-- **API-First Development:** Backend APIs designed before frontend implementation.
+
+### Frontend Patterns
+
+1. **Component Composition**
+   - Atomic design principles
+   - Reusable UI components from shadcn/ui
+   - Composition over inheritance
+
+2. **State Management**
+   - React Query for server state
+   - Local state with React hooks
+   - Form state with React Hook Form
+
+3. **Routing Pattern**
+   - Client-side routing with Wouter
+   - Route-based code splitting
+   - Protected routes with authentication
+
+4. **Data Fetching**
+   - React Query for data fetching and caching
+   - Optimistic updates
+   - Error boundary handling
+
+### Backend Patterns
+
+1. **RESTful API Design**
+   - Resource-based routing
+   - Standard HTTP methods
+   - Consistent error handling
+   - Input validation with Zod
+
+2. **Authentication Flow**
+   - Session-based authentication
+   - Passport.js strategies
+   - Secure session handling
+   - Role-based access control
+
+3. **Database Access**
+   - Repository pattern with Drizzle ORM
+   - Type-safe queries
+   - Migration management
+   - Connection pooling
+
+4. **Real-time Communication**
+   - WebSocket integration
+   - Event-based messaging
+   - Connection management
+
+## Component Patterns
+
+1. **Layout Components**
+   - Consistent page structure
+   - Responsive design
+   - Theme management
+
+2. **Form Components**
+   - Controlled inputs
+   - Validation with Zod
+   - Error handling
+   - Loading states
+
+3. **Data Display Components**
+   - Tables with sorting and filtering
+   - Charts and visualizations
+   - Loading skeletons
+   - Error states
+
+4. **Interactive Components**
+   - Modals and dialogs
+   - Tooltips and popovers
+   - Drag and drop interfaces
+   - Infinite scrolling
+
+## Error Handling
+
+1. **Client-Side Errors**
+   - React error boundaries
+   - Form validation errors
+   - API error handling
+   - Fallback UI components
+
+2. **Server-Side Errors**
+   - Global error middleware
+   - Validation errors
+   - Database errors
+   - Authentication errors
+
+## Security Patterns
+
+1. **Authentication**
+   - Session management
+   - Password hashing
+   - CSRF protection
+   - Secure cookies
+
+2. **Authorization**
+   - Role-based access control
+   - Resource-level permissions
+   - API route protection
+
+3. **Data Security**
+   - Input sanitization
+   - SQL injection prevention
+   - XSS protection
+   - CORS configuration
+
+## Performance Patterns
+
+1. **Client-Side Performance**
+   - Code splitting
+   - Lazy loading
+   - Asset optimization
+   - Caching strategies
+
+2. **Server-Side Performance**
+   - Connection pooling
+   - Query optimization
+   - Response caching
+   - Rate limiting
+
+## Testing Patterns
+
+1. **Unit Testing**
+   - Component testing
+   - Hook testing
+   - Utility function testing
+   - Mocking strategies
+
+2. **Integration Testing**
+   - API endpoint testing
+   - Authentication flow testing
+   - Database interaction testing
+
+3. **End-to-End Testing**
+   - User flow testing
+   - Cross-browser testing
+   - Performance testing
+
+## Development Workflow
+
+1. **Code Organization**
+   - Feature-based structure
+   - Shared utilities
+   - Type definitions
+   - Constants and configurations
+
+2. **Build Process**
+   - Development server with Vite
+   - Production builds
+   - Environment configuration
+   - Asset management
+
+3. **Deployment**
+   - Build optimization
+   - Environment variables
+   - Database migrations
+   - Monitoring and logging
+
+## Maintenance Patterns
+
+1. **Code Quality**
+   - TypeScript strict mode
+   - ESLint configuration
+   - Prettier formatting
+   - Code review guidelines
+
+2. **Documentation**
+   - Code comments
+   - API documentation
+   - Component documentation
+   - Setup instructions
+
+3. **Monitoring**
+   - Error tracking
+   - Performance monitoring
+   - User analytics
+   - Server health checks

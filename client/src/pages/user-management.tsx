@@ -17,6 +17,7 @@ import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User, insertUserSchema } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
+import { usePermissions } from "@/hooks/use-permissions";
 
 export default function UserManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -24,14 +25,24 @@ export default function UserManagement() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
+  const { hasPermission } = usePermissions();
 
-  // Check if user has management permissions
-  const managementRoles = ["admin", "ciso", "cto", "security_manager", "network_engineer"];
-  const hasManagementPermission = currentUser ? managementRoles.includes(currentUser.role) : false;
+  // Check permissions
+  const canManageUsers = hasPermission('manage_users');
+  const canChangeRoles = hasPermission('change_roles');
+  const canEditUserInfo = hasPermission('edit_user_info');
+  const canViewUsers = hasPermission('view_users');
+
+  // Debug permissions
+  console.log('Current user role:', currentUser?.role);
+  console.log('Can edit user info:', canEditUserInfo);
 
   // Fetch users
-  const { data: users, isLoading } = useQuery<User[]>({
-    queryKey: ['/api/users']
+  const { data: users, isLoading, refetch } = useQuery<User[]>({
+    queryKey: ['/api/users'],
+    enabled: canViewUsers,
+    gcTime: 0,      // Don't keep unused data in cache
+    refetchOnMount: true  // Always refetch on mount
   });
 
   // User form schema
@@ -67,6 +78,9 @@ export default function UserManagement() {
   // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: async (data: z.infer<typeof userFormSchema>) => {
+      if (!canManageUsers) {
+        throw new Error("You don't have permission to create users");
+      }
       const res = await apiRequest("POST", "/api/register", data);
       return res.json();
     },
@@ -79,7 +93,7 @@ export default function UserManagement() {
         description: "The user has been successfully created.",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Failed to Create User",
         description: error.message,
@@ -92,6 +106,17 @@ export default function UserManagement() {
   const updateUserMutation = useMutation({
     mutationFn: async (data: z.infer<typeof userFormSchema> & { id: number }) => {
       const { id, ...userData } = data;
+      
+      // Check role change permission
+      if (userData.role && selectedUser?.role !== userData.role && !canChangeRoles) {
+        throw new Error("You don't have permission to change user roles");
+      }
+
+      // Check general edit permission
+      if (!canEditUserInfo) {
+        throw new Error("You don't have permission to edit user information");
+      }
+
       try {
         const res = await apiRequest("PUT", `/api/users/${id}`, userData);
         if (!res.ok) {
@@ -135,6 +160,14 @@ export default function UserManagement() {
   };
 
   const handleOpenEditDialog = (user: User) => {
+    if (!canEditUserInfo) {
+      toast({
+        title: "Permission Denied",
+        description: "You don't have permission to edit user information",
+        variant: "destructive",
+      });
+      return;
+    }
     setSelectedUser(user);
     editForm.reset({
       username: user.username,
@@ -177,12 +210,40 @@ export default function UserManagement() {
     );
   }
 
+  if (!canViewUsers) {
+    return (
+      <DashboardLayout title="User Management">
+        <div className="flex items-center justify-center h-64">
+          <p className="text-error-600">You don't have permission to view users.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout title="User Management">
+      <div className="mb-4 p-4 bg-muted rounded-lg">
+        <h3 className="font-semibold mb-2">Debug Information</h3>
+        <p>Current Role: {currentUser?.role || 'Not logged in'}</p>
+        <p>Can Edit Users: {canEditUserInfo ? 'Yes' : 'No'}</p>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+            refetch();
+          }}
+          className="mt-2"
+        >
+          Refresh User Data
+        </Button>
+      </div>
+
       <div className="mb-6 flex justify-between items-center">
         <h1 className="text-2xl font-semibold">User Management</h1>
         <div className="flex space-x-2">
-          {hasManagementPermission && (
+          {canManageUsers && (
             <>
               <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
@@ -273,11 +334,15 @@ export default function UserManagement() {
                                 <SelectItem value="user">User</SelectItem>
                                 <SelectItem value="approver">Approver</SelectItem>
                                 <SelectItem value="implementer">Implementer</SelectItem>
-                                <SelectItem value="security_manager">Security Manager</SelectItem>
-                                <SelectItem value="network_engineer">Network Engineer</SelectItem>
-                                <SelectItem value="ciso">CISO</SelectItem>
-                                <SelectItem value="cto">CTO</SelectItem>
-                                <SelectItem value="admin">Administrator</SelectItem>
+                                {canChangeRoles && (
+                                  <>
+                                    <SelectItem value="security_manager">Security Manager</SelectItem>
+                                    <SelectItem value="network_engineer">Network Engineer</SelectItem>
+                                    <SelectItem value="ciso">CISO</SelectItem>
+                                    <SelectItem value="cto">CTO</SelectItem>
+                                    <SelectItem value="admin">Administrator</SelectItem>
+                                  </>
+                                )}
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -371,7 +436,11 @@ export default function UserManagement() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Role</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select 
+                              onValueChange={field.onChange} 
+                              defaultValue={field.value}
+                              disabled={!canChangeRoles}
+                            >
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select role" />
@@ -381,13 +450,22 @@ export default function UserManagement() {
                                 <SelectItem value="user">User</SelectItem>
                                 <SelectItem value="approver">Approver</SelectItem>
                                 <SelectItem value="implementer">Implementer</SelectItem>
-                                <SelectItem value="security_manager">Security Manager</SelectItem>
-                                <SelectItem value="network_engineer">Network Engineer</SelectItem>
-                                <SelectItem value="ciso">CISO</SelectItem>
-                                <SelectItem value="cto">CTO</SelectItem>
-                                <SelectItem value="admin">Administrator</SelectItem>
+                                {canChangeRoles && (
+                                  <>
+                                    <SelectItem value="security_manager">Security Manager</SelectItem>
+                                    <SelectItem value="network_engineer">Network Engineer</SelectItem>
+                                    <SelectItem value="ciso">CISO</SelectItem>
+                                    <SelectItem value="cto">CTO</SelectItem>
+                                    <SelectItem value="admin">Administrator</SelectItem>
+                                  </>
+                                )}
                               </SelectContent>
                             </Select>
+                            {!canChangeRoles && (
+                              <p className="text-sm text-muted-foreground">
+                                Only administrators can change user roles
+                              </p>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}
@@ -436,7 +514,7 @@ export default function UserManagement() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {hasManagementPermission && (
+                    {canEditUserInfo && (
                       <Button
                         variant="ghost"
                         size="sm"

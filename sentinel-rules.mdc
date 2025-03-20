@@ -1,0 +1,41 @@
+## Permission Management Patterns
+
+1. **Permission Structure**
+   - Use typed permission strings for all access control
+   - Define permissions in centralized type definitions
+   - Maintain role-permission matrix in configuration
+   - Use permission hooks for UI-level controls
+
+2. **Implementation Levels**
+   - UI Level: Hide/show components based on permissions
+   - Route Level: Protect pages/routes with permission HOC
+   - API Level: Use permission middleware
+   - Function Level: Check permissions in service layer
+
+3. **When to Use Function-Level Controls**
+   - Data manipulation operations
+   - System-critical operations
+   - Operations with audit requirements
+   - Multi-role operations with varying permissions
+
+4. **Permission Checking Hierarchy**
+   ```mermaid
+   flowchart TD
+     A[UI Permission Check] --> B[Route Permission Check]
+     B --> C[API Permission Check]
+     C --> D[Function Permission Check]
+   ```
+
+5. **Best Practices**
+   - Always check permissions at multiple levels
+   - Never rely solely on UI permission checks
+   - Log permission denials for security audit
+   - Use type-safe permission strings
+   - Keep permission matrix updated
+   - Document permission changes
+
+6. **Permission Audit Trail**
+   - Log all permission checks at API and function level
+   - Track permission changes in role matrix
+   - Monitor permission denial patterns
+   - Regular permission audit reviews 
