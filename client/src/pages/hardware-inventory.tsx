@@ -22,7 +22,7 @@ import { usePermissions } from "../hooks/use-permissions";
 import { useAuth } from "../hooks/use-auth";
 
 export default function HardwareInventory() {
-  const [activeTab, setActiveTab] = useState<string>("sites");
+  const [activeTab, setActiveTab] = useState<string>("devices");
   const [siteDialogOpen, setSiteDialogOpen] = useState(false);
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
@@ -145,6 +145,7 @@ export default function HardwareInventory() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/devices'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/audit-logs'] });
       setDeviceDialogOpen(false);
       setEditingDevice(null);
       deviceForm.reset();

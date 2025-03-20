@@ -12,7 +12,8 @@ import {
   Settings, 
   LogOut,
   Menu,
-  X
+  X,
+  ClipboardList
 } from "lucide-react";
 
 export function MobileSidebar() {
@@ -36,6 +37,7 @@ export function MobileSidebar() {
     { path: "/network-topology", label: "Network Topology", icon: <Network className="h-5 w-5 mr-3" /> },
     { path: "/change-management", label: "Change Management", icon: <FileEdit className="h-5 w-5 mr-3" /> },
     { path: "/tasks", label: "Tasks", icon: <Clipboard className="h-5 w-5 mr-3" /> },
+    { path: "/audit-logs", label: "Audit Logs", icon: <ClipboardList className="h-5 w-5 mr-3" /> },
     { path: "/user-management", label: "User Management", icon: <Users className="h-5 w-5 mr-3" /> },
     { path: "/settings", label: "Settings", icon: <Settings className="h-5 w-5 mr-3" /> },
   ];

@@ -94,13 +94,24 @@ router.put('/:id', withPermission('manage_devices'), async (req, res) => {
     const validatedData = insertDeviceSchema.partial().parse(req.body);
     const updatedDevice = await storage.updateDevice(deviceId, validatedData);
     
-    await logAuditAction(
-      req.user!.id,
-      "update_device",
-      "device",
-      deviceId.toString(),
-      `Updated device: ${device.name}`
-    );
+    // Log status change if status was updated
+    if (validatedData.status && validatedData.status !== device.status) {
+      await logAuditAction(
+        req.user!.id,
+        "update_device",
+        "device",
+        deviceId.toString(),
+        `Updated device: ${device.name}, status: ${validatedData.status}, Previous status: ${device.status}`
+      );
+    } else {
+      await logAuditAction(
+        req.user!.id,
+        "update_device",
+        "device",
+        deviceId.toString(),
+        `Updated device: ${device.name}`
+      );
+    }
     
     res.json(updatedDevice);
   } catch (error) {

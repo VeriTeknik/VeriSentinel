@@ -14,6 +14,7 @@ import ChangeManagement from "@/pages/change-management";
 import Tasks from "@/pages/tasks";
 import UserManagement from "@/pages/user-management";
 import Settings from "@/pages/settings";
+import AuditLogs from "@/pages/audit-logs";
 import { Route } from "wouter";
 
 function Router() {
@@ -27,6 +28,7 @@ function Router() {
       <ProtectedRoute path="/tasks" component={Tasks} />
       <ProtectedRoute path="/user-management" component={UserManagement} />
       <ProtectedRoute path="/settings" component={Settings} />
+      <ProtectedRoute path="/audit-logs" component={AuditLogs} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

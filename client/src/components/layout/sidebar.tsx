@@ -11,7 +11,8 @@ import {
   Settings, 
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ClipboardList
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -42,6 +43,7 @@ export function Sidebar() {
     { path: "/network-topology", label: "Network Topology", icon: <Network className="h-5 w-5" /> },
     { path: "/change-management", label: "Change Management", icon: <FileEdit className="h-5 w-5" /> },
     { path: "/tasks", label: "Tasks", icon: <Clipboard className="h-5 w-5" /> },
+    { path: "/audit-logs", label: "Audit Logs", icon: <ClipboardList className="h-5 w-5" /> },
     { path: "/user-management", label: "User Management", icon: <Users className="h-5 w-5" /> },
     { path: "/settings", label: "Settings", icon: <Settings className="h-5 w-5" /> },
   ];
