@@ -278,6 +278,7 @@ export class MemStorage implements IStorage {
       consultedRoleIds: control.consultedRoleIds || [],
       informedRoleIds: control.informedRoleIds || [],
       status: "not_assessed",
+      evidenceRequired: control.evidenceRequired ?? true,
       lastAssessedAt: null,
       nextAssessmentDue: null
     };
@@ -419,6 +420,7 @@ export class MemStorage implements IStorage {
       ...changeRequest, 
       id, 
       status: 'draft',
+      type: changeRequest.type || 'standard',
       riskLevel: changeRequest.riskLevel || 'medium',
       assignedTo: null,
       
@@ -435,6 +437,15 @@ export class MemStorage implements IStorage {
       businessApproverId: null,
       businessApprovedAt: null,
       
+      // Implementation and verification tracking
+      implementerId: null,
+      implementationNotes: null,
+      
+      verificationStatus: 'pending',
+      verifierId: null,
+      verifiedAt: null,
+      verificationNotes: null,
+      
       // Dates
       requestedAt: new Date(),
       scheduledFor: changeRequest.scheduledFor || null,
@@ -445,7 +456,14 @@ export class MemStorage implements IStorage {
       affectedSystems: changeRequest.affectedSystems || null,
       backoutPlan: changeRequest.backoutPlan || null,
       relatedControlIds: changeRequest.relatedControlIds || [],
-      comments: null
+      comments: null,
+      
+      // Firewall-specific fields
+      firewallRules: changeRequest.firewallRules || null,
+      sourceIp: changeRequest.sourceIp || null,
+      destinationIp: changeRequest.destinationIp || null,
+      portServices: changeRequest.portServices || null,
+      action: changeRequest.action || null
     };
     this.changeRequestData.set(id, newChangeRequest);
     return newChangeRequest;
