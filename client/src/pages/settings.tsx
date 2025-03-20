@@ -1,31 +1,26 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import DashboardLayout from "@/components/layout/dashboard-layout";
+import { useMutation } from "@tanstack/react-query";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, User, BellRing, Key, Shield, Lock, Mail, Globe, AlertCircle } from "lucide-react";
+import { Loader2, User, BellRing, Shield, Globe, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<string>("profile");
   const { toast } = useToast();
-  const { user, logoutMutation } = useAuth();
+  const { user } = useAuth();
 
-  // General settings form schema
+  // Form schemas
   const profileFormSchema = z.object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Please enter a valid email"),
@@ -77,11 +72,10 @@ export default function Settings() {
     },
   });
 
-  // Update profile mutation (placeholder - would connect to a real API endpoint)
+  // Update profile mutation
   const updateProfileMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof profileFormSchema>) => {
-      // This would be implemented to call a real API endpoint
-      // For now, just simulate a successful response
+    mutationFn: async () => {
+      // Placeholder
       return { success: true };
     },
     onSuccess: () => {
@@ -99,11 +93,10 @@ export default function Settings() {
     },
   });
 
-  // Change password mutation (placeholder - would connect to a real API endpoint)
+  // Change password mutation
   const changePasswordMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof securityFormSchema>) => {
-      // This would be implemented to call a real API endpoint
-      // For now, just simulate a successful response
+    mutationFn: async () => {
+      // Placeholder
       return { success: true };
     },
     onSuccess: () => {
@@ -122,11 +115,10 @@ export default function Settings() {
     },
   });
 
-  // Update notification settings mutation (placeholder - would connect to a real API endpoint)
+  // Update notification settings mutation
   const updateNotificationsMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof notificationFormSchema>) => {
-      // This would be implemented to call a real API endpoint
-      // For now, just simulate a successful response
+    mutationFn: async () => {
+      // Placeholder
       return { success: true };
     },
     onSuccess: () => {
@@ -145,15 +137,15 @@ export default function Settings() {
   });
 
   const handleUpdateProfile = (data: z.infer<typeof profileFormSchema>) => {
-    updateProfileMutation.mutate(data);
+    updateProfileMutation.mutate();
   };
 
   const handleChangePassword = (data: z.infer<typeof securityFormSchema>) => {
-    changePasswordMutation.mutate(data);
+    changePasswordMutation.mutate();
   };
 
   const handleUpdateNotifications = (data: z.infer<typeof notificationFormSchema>) => {
-    updateNotificationsMutation.mutate(data);
+    updateNotificationsMutation.mutate();
   };
 
   return (
@@ -166,49 +158,42 @@ export default function Settings() {
         {/* Sidebar */}
         <Card className="col-span-1">
           <CardContent className="p-4">
-            <Tabs 
-              orientation="vertical" 
-              value={activeTab} 
-              onValueChange={setActiveTab}
-              className="w-full"
-            >
-              <TabsList className="flex flex-col items-start space-y-1 h-auto bg-transparent">
-                <TabsTrigger 
-                  value="profile"
-                  className="w-full justify-start px-2 py-1.5 data-[state=active]:bg-gray-100 data-[state=active]:shadow-none"
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  Profile
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="security"
-                  className="w-full justify-start px-2 py-1.5 data-[state=active]:bg-gray-100 data-[state=active]:shadow-none"
-                >
-                  <Shield className="h-4 w-4 mr-2" />
-                  Security
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="notifications"
-                  className="w-full justify-start px-2 py-1.5 data-[state=active]:bg-gray-100 data-[state=active]:shadow-none"
-                >
-                  <BellRing className="h-4 w-4 mr-2" />
-                  Notifications
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="about"
-                  className="w-full justify-start px-2 py-1.5 data-[state=active]:bg-gray-100 data-[state=active]:shadow-none"
-                >
-                  <Globe className="h-4 w-4 mr-2" />
-                  About
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex flex-col items-start space-y-1">
+              <button 
+                onClick={() => setActiveTab("profile")} 
+                className={`w-full justify-start px-2 py-1.5 flex items-center text-left ${activeTab === "profile" ? "bg-gray-100 font-medium" : ""} rounded hover:bg-gray-50`}
+              >
+                <User className="h-4 w-4 mr-2" />
+                Profile
+              </button>
+              <button 
+                onClick={() => setActiveTab("security")} 
+                className={`w-full justify-start px-2 py-1.5 flex items-center text-left ${activeTab === "security" ? "bg-gray-100 font-medium" : ""} rounded hover:bg-gray-50`}
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Security
+              </button>
+              <button 
+                onClick={() => setActiveTab("notifications")} 
+                className={`w-full justify-start px-2 py-1.5 flex items-center text-left ${activeTab === "notifications" ? "bg-gray-100 font-medium" : ""} rounded hover:bg-gray-50`}
+              >
+                <BellRing className="h-4 w-4 mr-2" />
+                Notifications
+              </button>
+              <button 
+                onClick={() => setActiveTab("about")} 
+                className={`w-full justify-start px-2 py-1.5 flex items-center text-left ${activeTab === "about" ? "bg-gray-100 font-medium" : ""} rounded hover:bg-gray-50`}
+              >
+                <Globe className="h-4 w-4 mr-2" />
+                About
+              </button>
+            </div>
           </CardContent>
         </Card>
 
         {/* Main content */}
         <div className="col-span-1 md:col-span-3">
-          <TabsContent value="profile" className="m-0">
+          {activeTab === "profile" && (
             <Card>
               <CardHeader>
                 <CardTitle>Profile Settings</CardTitle>
@@ -260,9 +245,9 @@ export default function Settings() {
                 </Form>
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="security" className="m-0">
+          {activeTab === "security" && (
             <Card>
               <CardHeader>
                 <CardTitle>Security Settings</CardTitle>
@@ -344,9 +329,9 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="notifications" className="m-0">
+          {activeTab === "notifications" && (
             <Card>
               <CardHeader>
                 <CardTitle>Notification Settings</CardTitle>
@@ -454,9 +439,9 @@ export default function Settings() {
                 </Form>
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="about" className="m-0">
+          {activeTab === "about" && (
             <Card>
               <CardHeader>
                 <CardTitle>About Verisentinel</CardTitle>
@@ -502,7 +487,7 @@ export default function Settings() {
                 </Button>
               </CardFooter>
             </Card>
-          </TabsContent>
+          )}
         </div>
       </div>
     </DashboardLayout>
