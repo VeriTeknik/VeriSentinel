@@ -46,14 +46,14 @@ export function Sidebar() {
         <div className="mt-8 space-y-1">
           {navItems.map((item) => (
             <Link key={item.path} href={item.path}>
-              <a className={`flex items-center px-4 py-2 rounded-md ${
+              <div className={`flex items-center px-4 py-2 rounded-md cursor-pointer ${
                 location === item.path 
                   ? "bg-gray-800 text-white" 
                   : "text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
               }`}>
                 {item.icon}
                 {item.label}
-              </a>
+              </div>
             </Link>
           ))}
         </div>
@@ -62,11 +62,11 @@ export function Sidebar() {
       <div className="p-4 border-t border-gray-800">
         <div className="flex items-center">
           <div className="h-8 w-8 rounded-full bg-primary-700 text-white flex items-center justify-center mr-3">
-            {user?.name?.charAt(0) || user?.username?.charAt(0) || 'U'}
+            {user?.name ? user.name.charAt(0) : (user?.username ? user.username.charAt(0) : 'U')}
           </div>
           <div>
-            <p className="text-sm font-medium text-white">{user?.name || user?.username}</p>
-            <p className="text-xs text-gray-400">{user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1) || 'User'}</p>
+            <p className="text-sm font-medium text-white">{user?.name || user?.username || 'User'}</p>
+            <p className="text-xs text-gray-400">{user?.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1)) : 'User'}</p>
           </div>
           <div className="ml-auto">
             <button onClick={handleLogout} className="text-gray-400 hover:text-white">
