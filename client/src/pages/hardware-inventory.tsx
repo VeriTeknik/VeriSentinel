@@ -11,18 +11,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Server, Network, HardDrive, Building } from "lucide-react";
+import { Loader2, Plus, Server, Network, HardDrive, Building, Pencil, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Site, Device, insertSiteSchema, insertDeviceSchema } from "@shared/schema";
+import { usePermissions } from "../hooks/use-permissions";
+import { useAuth } from "../hooks/use-auth";
 
 export default function HardwareInventory() {
   const [activeTab, setActiveTab] = useState<string>("sites");
   const [siteDialogOpen, setSiteDialogOpen] = useState(false);
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
+  const { hasPermission } = usePermissions();
+  const { user, isLoading: isLoadingUser } = useAuth();
   const { toast } = useToast();
 
   // Fetch sites and devices
@@ -54,7 +59,7 @@ export default function HardwareInventory() {
 
   // Device form schema
   const deviceFormSchema = z.object({
-    siteId: z.string().transform(val => parseInt(val)),
+    siteId: z.coerce.number().min(1, "Site is required"),
     name: z.string().min(1, "Name is required"),
     type: z.string().min(1, "Type is required"),
     ipAddress: z.string().optional(),
@@ -121,12 +126,56 @@ export default function HardwareInventory() {
     },
   });
 
+  // Update device mutation
+  const updateDeviceMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof deviceFormSchema>) => {
+      const res = await apiRequest("PUT", `/api/devices/${editingDevice?.id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/devices'] });
+      setDeviceDialogOpen(false);
+      setEditingDevice(null);
+      deviceForm.reset();
+      toast({
+        title: "Device Updated",
+        description: "The device has been successfully updated.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Update Device",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreateSite = (data: z.infer<typeof siteFormSchema>) => {
     createSiteMutation.mutate(data);
   };
 
-  const handleCreateDevice = (data: z.infer<typeof deviceFormSchema>) => {
-    createDeviceMutation.mutate(data);
+  const handleEditDevice = (device: Device) => {
+    setEditingDevice(device);
+    deviceForm.reset({
+      siteId: device.siteId,
+      name: device.name,
+      type: device.type,
+      ipAddress: device.ipAddress || "",
+      vlan: device.vlan || "",
+      operatingSystem: device.operatingSystem || "",
+      services: device.services || "",
+      status: device.status,
+    });
+    setDeviceDialogOpen(true);
+  };
+
+  const handleSubmitDevice = (data: z.infer<typeof deviceFormSchema>) => {
+    if (editingDevice) {
+      updateDeviceMutation.mutate(data);
+    } else {
+      createDeviceMutation.mutate(data);
+    }
   };
 
   // Device type icon
@@ -157,22 +206,22 @@ export default function HardwareInventory() {
     }
   };
 
-  // Device status badge
-  const getDeviceStatusBadge = (status: string) => {
+  // Device status icon
+  const getDeviceStatusIcon = (status: string) => {
     switch (status) {
       case "active":
-        return <Badge className="bg-success-100 text-success-800">Active</Badge>;
+        return <div className="flex items-center text-green-600" title="Active"><CheckCircle2 className="h-8 w-8" /></div>;
       case "inactive":
-        return <Badge className="bg-error-100 text-error-800">Inactive</Badge>;
+        return <div className="flex items-center text-red-600" title="Inactive"><XCircle className="h-8 w-8" /></div>;
       case "maintenance":
-        return <Badge className="bg-warning-100 text-warning-800">Maintenance</Badge>;
+        return <div className="flex items-center text-orange-600" title="Maintenance"><AlertCircle className="h-8 w-8" /></div>;
       default:
-        return <Badge>{status}</Badge>;
+        return <div className="flex items-center text-gray-600" title={status}><AlertCircle className="h-8 w-8" /></div>;
     }
   };
 
   // Loading state
-  if (isLoadingSites || isLoadingDevices) {
+  if (isLoadingSites || isLoadingDevices || isLoadingUser) {
     return (
       <DashboardLayout title="Hardware Inventory">
         <div className="flex items-center justify-center h-64">
@@ -184,6 +233,22 @@ export default function HardwareInventory() {
 
   return (
     <DashboardLayout title="Hardware Inventory">
+      {/* Debug Information */}
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>Debug Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <div><strong>User ID:</strong> {user?.id}</div>
+            <div><strong>Username:</strong> {user?.username}</div>
+            <div><strong>Role:</strong> {user?.role}</div>
+            <div><strong>Has manage_devices permission:</strong> {hasPermission('manage_devices') ? 'Yes' : 'No'}</div>
+            <div><strong>Has view_devices permission:</strong> {hasPermission('view_devices') ? 'Yes' : 'No'}</div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="mb-6 flex justify-between items-center">
         <h1 className="text-2xl font-semibold">Hardware Inventory</h1>
         <div className="flex space-x-2">
@@ -291,14 +356,14 @@ export default function HardwareInventory() {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[550px]">
               <DialogHeader>
-                <DialogTitle>Add New Device</DialogTitle>
+                <DialogTitle>{editingDevice ? 'Edit Device' : 'Add New Device'}</DialogTitle>
                 <DialogDescription>
-                  Register a new device in your infrastructure inventory.
+                  {editingDevice ? 'Update device information.' : 'Register a new device in your infrastructure inventory.'}
                 </DialogDescription>
               </DialogHeader>
               
               <Form {...deviceForm}>
-                <form onSubmit={deviceForm.handleSubmit(handleCreateDevice)} className="space-y-6">
+                <form onSubmit={deviceForm.handleSubmit(handleSubmitDevice)} className="space-y-6">
                   <FormField
                     control={deviceForm.control}
                     name="siteId"
@@ -443,11 +508,14 @@ export default function HardwareInventory() {
                   />
                   
                   <DialogFooter>
-                    <Button type="submit" disabled={createDeviceMutation.isPending}>
-                      {createDeviceMutation.isPending && (
+                    <Button 
+                      type="submit" 
+                      disabled={createDeviceMutation.isPending || updateDeviceMutation.isPending}
+                    >
+                      {(createDeviceMutation.isPending || updateDeviceMutation.isPending) && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      Create Device
+                      {editingDevice ? 'Update Device' : 'Create Device'}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -459,8 +527,8 @@ export default function HardwareInventory() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4">
+        <TabsTrigger value="devices">Devices</TabsTrigger>
           <TabsTrigger value="sites">Sites</TabsTrigger>
-          <TabsTrigger value="devices">Devices</TabsTrigger>
         </TabsList>
         
         <TabsContent value="sites">
@@ -517,8 +585,8 @@ export default function HardwareInventory() {
                     <TableHead>Type</TableHead>
                     <TableHead>Site</TableHead>
                     <TableHead>IP Address</TableHead>
-                    <TableHead>Operating System</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[50px]">Status</TableHead>
+                    {hasPermission('manage_devices') && <TableHead className="w-[70px]">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -538,14 +606,26 @@ export default function HardwareInventory() {
                           <TableCell>{device.type.charAt(0).toUpperCase() + device.type.slice(1)}</TableCell>
                           <TableCell>{site?.name || `Site ${device.siteId}`}</TableCell>
                           <TableCell>{device.ipAddress || "-"}</TableCell>
-                          <TableCell>{device.operatingSystem || "-"}</TableCell>
-                          <TableCell>{getDeviceStatusBadge(device.status)}</TableCell>
+                          <TableCell>{getDeviceStatusIcon(device.status)}</TableCell>
+                          {hasPermission('manage_devices') && (
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditDevice(device)}
+                                className="h-8 w-8"
+                                title="Edit Device"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-4">
+                      <TableCell colSpan={hasPermission('manage_devices') ? 7 : 6} className="text-center py-4">
                         No devices found. Add your first device to get started.
                       </TableCell>
                     </TableRow>

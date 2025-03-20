@@ -1,24 +1,20 @@
-import { Permission, ROLE_PERMISSIONS, Role } from '@/types/permissions'
-import type { NextApiRequest, NextApiResponse } from 'next'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth'
+import { Permission, ROLE_PERMISSIONS, Role } from '@shared/types/permissions'
+import { Request, Response, NextFunction } from 'express'
 
 export type PermissionHandler = (
-  req: NextApiRequest,
-  res: NextApiResponse,
+  req: Request,
+  res: Response,
   permission: Permission
 ) => Promise<boolean>
 
 export const withPermission = (permission: Permission) => {
-  return async (req: NextApiRequest, res: NextApiResponse, next: any) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const session = await getServerSession(req, res, authOptions)
-      
-      if (!session?.user) {
+      if (!req.isAuthenticated() || !req.user) {
         return res.status(401).json({ error: 'Unauthorized' })
       }
 
-      const userRole = session.user.role as Role
+      const userRole = req.user.role as Role
       const hasPermission = ROLE_PERMISSIONS[userRole]?.includes(permission)
 
       if (!hasPermission) {

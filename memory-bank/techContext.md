@@ -134,3 +134,52 @@ Managed through Drizzle ORM with:
 - Secure cookie configuration
 - Input validation with Zod
 - Type safety with TypeScript
+
+## Authentication & Authorization
+
+### Role-Permission System
+- **TypeScript Types**
+  - Permission strings
+  - Role enumeration
+  - Permission matrix type safety
+
+- **React Hooks**
+  - usePermissions for permission checks
+  - Integration with useAuth
+  - React Query for data management
+
+- **API Middleware**
+  - Express-style permission middleware
+  - Session validation
+  - Role-based access control
+
+- **Data Management**
+  - React Query for caching
+  - Manual and automatic invalidation
+  - Type-safe API requests
+
+### Dependencies
+- React Query v5
+- Next.js
+- TypeScript
+- Zod for validation
+- shadcn/ui components
+
+### Development Setup
+- TypeScript strict mode
+- ESLint for code quality
+- Prettier for formatting
+- Jest for testing
+
+### Technical Constraints
+- Type safety requirements
+- Performance considerations
+- Security requirements
+- Scalability needs
+
+### Security Measures
+- Role-based access control
+- Permission validation
+- Session management
+- Error handling
+- Audit logging

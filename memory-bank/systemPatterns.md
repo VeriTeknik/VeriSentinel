@@ -196,3 +196,64 @@ The application follows a client-server architecture with clear separation of co
    - Performance monitoring
    - User analytics
    - Server health checks
+
+## Authentication & Authorization
+
+### Role-Permission System
+
+#### Architecture
+```mermaid
+flowchart TD
+    User[User Interface] --> Hook[usePermissions Hook]
+    Hook --> Matrix[ROLE_PERMISSIONS Matrix]
+    Hook --> Cache[React Query Cache]
+    
+    API[API Endpoint] --> Middleware[Permission Middleware]
+    Middleware --> Matrix
+    Middleware --> Session[Auth Session]
+    
+    Cache --> Sync[Data Synchronization]
+    Session --> Sync
+```
+
+#### Core Components
+1. **Permission Types (`types/permissions.ts`)**
+   - Type-safe permission strings
+   - Role type definition
+   - ROLE_PERMISSIONS matrix
+
+2. **Permission Hook (`hooks/use-permissions.ts`)**
+   - Client-side permission checks
+   - Role-based access control
+   - Integration with auth context
+
+3. **API Middleware (`server/middleware/permissions.ts`)**
+   - Server-side permission validation
+   - Session verification
+   - Error handling
+
+4. **User Management Interface**
+   - Permission-based UI rendering
+   - Role management controls
+   - Debug information panel
+
+#### Permission Check Flow
+```mermaid
+flowchart TD
+    UI[UI Component] --> Hook[usePermissions Hook]
+    Hook --> Allow{Has Permission?}
+    Allow -->|Yes| Render[Render Component]
+    Allow -->|No| Hide[Hide/Disable Component]
+    
+    Action[User Action] --> API[API Request]
+    API --> Middleware[Permission Middleware]
+    Middleware --> Check{Permission Check}
+    Check -->|Pass| Execute[Execute Request]
+    Check -->|Fail| Error[Return Error]
+```
+
+#### Data Synchronization
+- React Query for data management
+- Cache invalidation on updates
+- Manual refresh capability
+- Session-based validation

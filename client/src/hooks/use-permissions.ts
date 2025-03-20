@@ -1,5 +1,5 @@
 import { useAuth } from './use-auth'
-import { Permission, ROLE_PERMISSIONS, Role } from '@/types/permissions'
+import { Permission, ROLE_PERMISSIONS, Role } from '../../../shared/types/permissions'
 
 export function usePermissions() {
   const { user } = useAuth()

@@ -73,6 +73,7 @@ export interface IStorage {
   listDeviceChildren(parentDeviceId: number): Promise<Device[]>;
   listTopLevelDevices(siteId: number): Promise<Device[]>;
   updateDevice(id: number, device: Partial<InsertDevice>): Promise<Device | undefined>;
+  deleteDevice(id: number): Promise<void>;
   
   // Change request management
   createChangeRequest(changeRequest: InsertChangeRequest): Promise<ChangeRequest>;
@@ -325,6 +326,20 @@ export class PostgresStorage implements IStorage {
       .where(eq(devices.id, id))
       .returning();
     return result[0];
+  }
+
+  async deleteDevice(id: number): Promise<void> {
+    // First delete any child devices
+    const children = await this.listDeviceChildren(id);
+    for (const child of children) {
+      await this.deleteDevice(child.id);
+    }
+    
+    // Delete any change request relationships
+    await db.delete(changeRequestDevices).where(eq(changeRequestDevices.deviceId, id));
+    
+    // Delete the device itself
+    await db.delete(devices).where(eq(devices.id, id));
   }
 
   // Change request management

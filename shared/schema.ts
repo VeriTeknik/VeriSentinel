@@ -10,7 +10,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   // Enhanced roles for RACI matrix
-  role: text("role").notNull().default("user"), // admin, ciso, cto, security_manager, network_admin, system_admin, auditor, user
+  role: text("role").notNull().default("user"), // admin, ciso, cto, security_manager, network_engineer, approver, implementer, user
   avatar: text("avatar"),
 });
 

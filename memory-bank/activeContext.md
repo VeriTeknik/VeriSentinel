@@ -30,6 +30,13 @@ The project has undergone a major architectural change, transitioning from a Nex
    - Enhanced error handling
    - Added WebSocket support
 
+5. **Role-Permission System**
+   - Implemented type-safe permission system with centralized role-permission matrix
+   - Created usePermissions hook for client-side permission checks
+   - Updated user management interface with granular permission controls
+   - Added debug information panel for troubleshooting permission issues
+   - Implemented cache invalidation for user data synchronization
+
 ### Active Decisions
 
 1. **Architecture**
@@ -49,6 +56,12 @@ The project has undergone a major architectural change, transitioning from a Nex
    - PostgreSQL session store
    - Secure cookie configuration
    - Role-based access control
+
+4. **Role-Permission System**
+   - Using a centralized ROLE_PERMISSIONS matrix for permission management
+   - Implementing multi-level permission checks (UI, API, function-level)
+   - Adding debug information panel for easier troubleshooting
+   - Using React Query's cache invalidation for data synchronization
 
 ### Current Focus
 
@@ -70,6 +83,11 @@ The project has undergone a major architectural change, transitioning from a Nex
    - Maintaining development guides
    - Recording architectural decisions
 
+4. **Role-Permission System**
+   - Implementing and debugging the role-permission system
+   - Resolving user role synchronization issues between client and server
+   - Enhancing user management interface with permission-based controls
+
 ### Next Steps
 
 1. **Short Term**
@@ -89,6 +107,12 @@ The project has undergone a major architectural change, transitioning from a Nex
    - Enhance real-time features
    - Implement advanced caching
    - Add performance optimizations
+
+4. **Role-Permission System**
+   - Monitor role synchronization after implementing refresh functionality
+   - Verify permission checks across all user management operations
+   - Consider implementing automatic cache invalidation on role changes
+   - Add comprehensive error handling for permission-related edge cases
 
 ### Active Considerations
 
@@ -134,4 +158,17 @@ The project has undergone a major architectural change, transitioning from a Nex
    - Configuring production environment
    - Setting up monitoring
    - Managing database connections
-   - Handling WebSocket scaling 
+   - Handling WebSocket scaling
+
+### Active Issues
+
+1. **Role-Permission System**
+   - Role mismatch between client cache and database (e.g., "cto" vs "admin")
+   - Added refresh functionality to force cache invalidation and data resync
+   - Investigating potential auth session persistence issues
+
+2. **Security**
+   - Balance between caching for performance and data freshness
+   - Security implications of role/permission changes
+   - User experience during permission-related errors
+   - Scalability of the permission system for future roles/permissions 

@@ -3,12 +3,12 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { z } from "zod";
+import deviceRoutes from './routes/devices';
 import { 
   insertComplianceFrameworkSchema, 
   insertComplianceControlSchema,
   insertEvidenceSchema,
   insertSiteSchema,
-  insertDeviceSchema,
   insertChangeRequestSchema,
   insertTaskSchema,
   insertSprintSchema,
@@ -37,6 +37,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       details
     });
   };
+
+  // Register device routes
+  app.use('/api/devices', isAuthenticated, deviceRoutes);
 
   // User management routes
   app.get("/api/users", isAuthenticated, async (req, res) => {
@@ -264,57 +267,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create site" });
-    }
-  });
-
-  // Devices API
-  app.get("/api/devices", isAuthenticated, async (req, res) => {
-    try {
-      const siteId = req.query.siteId ? parseInt(req.query.siteId as string) : undefined;
-      const parentId = req.query.parentId ? parseInt(req.query.parentId as string) : undefined;
-      const topLevelOnly = req.query.topLevelOnly === 'true';
-      
-      console.log('Devices API request:', { siteId, parentId, topLevelOnly });
-      
-      // Get devices based on the query parameters
-      let devices;
-      if (parentId) {
-        // Get children of a specific device
-        devices = await storage.listDeviceChildren(parentId);
-      } else if (siteId && topLevelOnly) {
-        // Get only top-level devices for a site
-        devices = await storage.listTopLevelDevices(siteId);
-      } else {
-        // Get all devices, optionally filtered by site
-        devices = await storage.listDevices(siteId);
-      }
-      
-      res.json(devices);
-    } catch (error) {
-      console.error('Error in /api/devices endpoint:', error);
-      res.status(500).json({ message: "Failed to retrieve devices", error: String(error) });
-    }
-  });
-
-  app.post("/api/devices", isAuthenticated, async (req, res) => {
-    try {
-      const validatedData = insertDeviceSchema.parse(req.body);
-      const device = await storage.createDevice(validatedData);
-      
-      await logAuditAction(
-        req.user!.id,
-        "create_device",
-        "device",
-        device.id.toString(),
-        `Created device: ${device.name}`
-      );
-      
-      res.status(201).json(device);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid input", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to create device" });
     }
   });
 
