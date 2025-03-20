@@ -181,14 +181,7 @@ export class MemStorage implements IStorage {
       ...insertUser, 
       id, 
       role: insertUser.role || 'user',
-      department: insertUser.department || null,
-      isApprover: insertUser.isApprover || false,
-      isRequester: insertUser.isRequester || false,
-      approvalLevel: insertUser.approvalLevel || 0,
-      pciResponsibilities: insertUser.pciResponsibilities || [],
-      avatar: null,
-      lastLogin: null,
-      isActive: true
+      avatar: null
     };
     this.users.set(id, user);
     return user;
@@ -204,8 +197,9 @@ export class MemStorage implements IStorage {
   }
   
   async getUsersWithApprovalRights(): Promise<User[]> {
+    // Since we no longer have isApprover field, we'll return users with admin role
     return Array.from(this.users.values())
-      .filter(user => user.isApprover === true);
+      .filter(user => user.role === 'admin' || user.role === 'ciso' || user.role === 'cto');
   }
   
   // Compliance framework management
@@ -631,9 +625,16 @@ export class PostgresStorage implements IStorage {
   }
   
   async getUsersWithApprovalRights(): Promise<User[]> {
+    // Since we no longer have isApprover field, we'll return users with admin role
     return await db.select()
       .from(users)
-      .where(eq(users.isApprover, true));
+      .where(
+        or(
+          eq(users.role, 'admin'),
+          eq(users.role, 'ciso'),
+          eq(users.role, 'cto')
+        )
+      );
   }
 
   // Compliance framework management
@@ -786,6 +787,14 @@ export class PostgresStorage implements IStorage {
         eq(devices.siteId, siteId),
         isNull(devices.parentDeviceId)
       ));
+  }
+  
+  async updateDevice(id: number, device: Partial<InsertDevice>): Promise<Device | undefined> {
+    const result = await db.update(devices)
+      .set(device)
+      .where(eq(devices.id, id))
+      .returning();
+    return result[0];
   }
 
   // Change request management
