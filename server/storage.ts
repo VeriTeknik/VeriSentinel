@@ -85,6 +85,12 @@ export interface IStorage {
   getChangeRequestsRequiredSecurityApproval(): Promise<ChangeRequest[]>;
   getChangeRequestsForImplementation(implementerId?: number): Promise<ChangeRequest[]>;
   
+  // Change request to device relationship management
+  addDeviceToChangeRequest(changeRequestDevice: InsertChangeRequestDevice): Promise<ChangeRequestDevice>;
+  removeDeviceFromChangeRequest(changeRequestId: number, deviceId: number): Promise<void>;
+  getDevicesForChangeRequest(changeRequestId: number): Promise<(Device & { impact: string, notes: string | null })[]>;
+  getChangeRequestsForDevice(deviceId: number): Promise<ChangeRequest[]>;
+  
   // Task management
   createTask(task: InsertTask): Promise<Task>;
   getTask(id: number): Promise<Task | undefined>;
@@ -506,6 +512,61 @@ export class MemStorage implements IStorage {
     }
     
     return requests;
+  }
+  
+  // Change request to device relationship management
+  private changeRequestDevicesData: Map<number, ChangeRequestDevice> = new Map();
+  private changeRequestDeviceIdCounter: number = 1;
+  
+  async addDeviceToChangeRequest(changeRequestDevice: InsertChangeRequestDevice): Promise<ChangeRequestDevice> {
+    const id = this.changeRequestDeviceIdCounter++;
+    const newRelation: ChangeRequestDevice = {
+      ...changeRequestDevice,
+      id,
+      impact: changeRequestDevice.impact || 'affected',
+      notes: changeRequestDevice.notes || null
+    };
+    this.changeRequestDevicesData.set(id, newRelation);
+    return newRelation;
+  }
+  
+  async removeDeviceFromChangeRequest(changeRequestId: number, deviceId: number): Promise<void> {
+    // Find and remove all matching entries
+    for (const [id, relation] of this.changeRequestDevicesData.entries()) {
+      if (relation.changeRequestId === changeRequestId && relation.deviceId === deviceId) {
+        this.changeRequestDevicesData.delete(id);
+      }
+    }
+  }
+  
+  async getDevicesForChangeRequest(changeRequestId: number): Promise<(Device & { impact: string, notes: string | null })[]> {
+    // Get all device relations for this change request
+    const relations = Array.from(this.changeRequestDevicesData.values())
+      .filter(relation => relation.changeRequestId === changeRequestId);
+    
+    // Map to full device details with impact and notes
+    return relations.map(relation => {
+      const device = this.deviceData.get(relation.deviceId);
+      if (!device) {
+        throw new Error(`Device with ID ${relation.deviceId} not found`);
+      }
+      return {
+        ...device,
+        impact: relation.impact,
+        notes: relation.notes
+      };
+    });
+  }
+  
+  async getChangeRequestsForDevice(deviceId: number): Promise<ChangeRequest[]> {
+    // Find all change request IDs related to this device
+    const changeRequestIds = Array.from(this.changeRequestDevicesData.values())
+      .filter(relation => relation.deviceId === deviceId)
+      .map(relation => relation.changeRequestId);
+    
+    // Get the full change request details
+    return Array.from(this.changeRequestData.values())
+      .filter(request => changeRequestIds.includes(request.id));
   }
   
   // Task management

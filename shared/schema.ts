@@ -162,7 +162,7 @@ export const changeRequests = pgTable("change_requests", {
   closedAt: timestamp("closed_at"),
   
   // Additional tracking
-  affectedSystems: text("affected_systems"), // Comma-separated list of systems
+  affectedSystems: text("affected_systems"), // Comma-separated list of systems 
   backoutPlan: text("backout_plan"), // Plan to revert changes if issues occur
   relatedControlIds: text("related_control_ids").array(), // Related compliance controls
   comments: text("comments"), // Any additional notes or comments
@@ -232,6 +232,22 @@ export const insertSprintSchema = createInsertSchema(sprints).pick({
 });
 
 // PCI-DSS specific controls with RACI matrix
+// Change request to device relationship table
+export const changeRequestDevices = pgTable("change_request_devices", {
+  id: serial("id").primaryKey(),
+  changeRequestId: integer("change_request_id").notNull().references(() => changeRequests.id, { onDelete: 'cascade' }),
+  deviceId: integer("device_id").notNull().references(() => devices.id, { onDelete: 'cascade' }),
+  impact: text("impact").default("affected"), // affected, primary, secondary
+  notes: text("notes"),
+});
+
+export const insertChangeRequestDeviceSchema = createInsertSchema(changeRequestDevices).pick({
+  changeRequestId: true,
+  deviceId: true,
+  impact: true,
+  notes: true,
+});
+
 export const pciDssControls = pgTable("pci_dss_controls", {
   id: serial("id").primaryKey(),
   controlNumber: text("control_number").notNull(), // e.g., "1.1.1", "2.2.4"
@@ -318,3 +334,6 @@ export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 
 export type PciDssControl = typeof pciDssControls.$inferSelect;
 export type InsertPciDssControl = z.infer<typeof insertPciDssControlSchema>;
+
+export type ChangeRequestDevice = typeof changeRequestDevices.$inferSelect;
+export type InsertChangeRequestDevice = z.infer<typeof insertChangeRequestDeviceSchema>;
