@@ -457,7 +457,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Only technical roles can provide technical approval
-      if (req.user!.role !== "admin" && req.user!.role !== "cto" && req.user!.role !== "network_admin") {
+      if (req.user!.role !== "admin" && 
+          req.user!.role !== "cto" && 
+          req.user!.role !== "network_engineer") {
         return res.status(403).json({ message: "Not authorized to provide technical approval" });
       }
       
@@ -634,9 +636,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Not authorized to implement change requests" });
       }
       
-      // For firewall changes, implementer must be a network admin
-      if (changeRequest.type === "firewall" && req.user!.role !== "admin" && req.user!.role !== "network_admin") {
-        return res.status(403).json({ message: "Only network admins can implement firewall changes" });
+      // For firewall changes, implementer must be a network admin or implementer
+      if (changeRequest.type === "firewall" && 
+          req.user!.role !== "admin" && 
+          req.user!.role !== "implementer" && 
+          req.user!.role !== "network_engineer") {
+        return res.status(403).json({ message: "Only network engineers/implementers can implement firewall changes" });
       }
       
       const updatedRequest = await storage.updateChangeRequest(id, {

@@ -533,11 +533,12 @@ export class MemStorage implements IStorage {
   
   async removeDeviceFromChangeRequest(changeRequestId: number, deviceId: number): Promise<void> {
     // Find and remove all matching entries
-    for (const [id, relation] of this.changeRequestDevicesData.entries()) {
+    // Use Array.from to avoid the TS iteration error
+    Array.from(this.changeRequestDevicesData.entries()).forEach(([id, relation]) => {
       if (relation.changeRequestId === changeRequestId && relation.deviceId === deviceId) {
         this.changeRequestDevicesData.delete(id);
       }
-    }
+    });
   }
   
   async getDevicesForChangeRequest(changeRequestId: number): Promise<(Device & { impact: string, notes: string | null })[]> {
@@ -885,7 +886,13 @@ export class PostgresStorage implements IStorage {
   }
 
   async listChangeRequests(): Promise<ChangeRequest[]> {
-    return await db.select().from(changeRequests);
+    try {
+      const results = await db.select().from(changeRequests);
+      return results;
+    } catch (error) {
+      console.error('Error in listChangeRequests:', error);
+      return [];
+    }
   }
 
   async getChangeRequestsByStatus(status: string): Promise<ChangeRequest[]> {
