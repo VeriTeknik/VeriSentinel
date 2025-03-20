@@ -35,10 +35,20 @@ export default function ChangeManagement() {
     queryKey: ['/api/change-requests']
   });
 
-  // Create change request form schema
+  // Create change request form schema with conditional fields based on change type
   const requestFormSchema = z.object({
     title: z.string().min(1, "Title is required"),
     description: z.string().min(1, "Description is required"),
+    type: z.enum(["standard", "firewall", "server", "network", "emergency"]),
+    riskLevel: z.enum(["low", "medium", "high", "critical"]).default("medium"),
+    affectedSystems: z.string().optional(),
+    backoutPlan: z.string().optional(),
+    // Conditional fields for firewall changes
+    sourceIp: z.string().optional(),
+    destinationIp: z.string().optional(),
+    portServices: z.string().optional(),
+    action: z.enum(["allow", "deny", "nat", "other"]).optional(),
+    firewallRules: z.string().optional(),
   });
 
   const form = useForm<z.infer<typeof requestFormSchema>>({
@@ -46,6 +56,15 @@ export default function ChangeManagement() {
     defaultValues: {
       title: "Firewall Rule Change",
       description: "",
+      type: "firewall",
+      riskLevel: "medium",
+      affectedSystems: "",
+      backoutPlan: "",
+      sourceIp: "",
+      destinationIp: "",
+      portServices: "",
+      action: "allow",
+      firewallRules: "",
     },
   });
 
@@ -208,6 +227,69 @@ export default function ChangeManagement() {
                     )}
                   />
                   
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Change Type</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="standard">Standard</SelectItem>
+                              <SelectItem value="firewall">Firewall</SelectItem>
+                              <SelectItem value="server">Server</SelectItem>
+                              <SelectItem value="network">Network</SelectItem>
+                              <SelectItem value="emergency">Emergency</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Type of change being requested
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="riskLevel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Risk Level</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select risk level" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="low">Low</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="high">High</SelectItem>
+                              <SelectItem value="critical">Critical</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Impact and risk level of the change
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
                   <FormField
                     control={form.control}
                     name="description"
@@ -217,7 +299,7 @@ export default function ChangeManagement() {
                         <FormControl>
                           <Textarea 
                             placeholder="Provide detailed information about the change request" 
-                            className="min-h-[150px]"
+                            className="min-h-[100px]"
                             {...field} 
                           />
                         </FormControl>
@@ -229,12 +311,148 @@ export default function ChangeManagement() {
                     )}
                   />
                   
+                  <FormField
+                    control={form.control}
+                    name="affectedSystems"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Affected Systems</FormLabel>
+                        <FormControl>
+                          <Input placeholder="List systems affected by this change" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Comma-separated list of systems impacted
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="backoutPlan"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Backout Plan</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Plan to revert changes if issues occur" 
+                            className="min-h-[60px]"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Detail how the change can be reversed if needed
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {/* Conditional Firewall-specific fields */}
+                  {form.watch("type") === "firewall" && (
+                    <div className="space-y-4 border border-gray-200 rounded-md p-4 mt-2">
+                      <h3 className="text-md font-medium border-b pb-2">Firewall Rule Details</h3>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="sourceIp"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Source IP/Network</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., 192.168.1.0/24" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="destinationIp"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Destination IP/Network</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., 10.0.0.1" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="portServices"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Ports/Services</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., TCP 443, UDP 53" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="action"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Action</FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select action" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="allow">Allow</SelectItem>
+                                  <SelectItem value="deny">Deny</SelectItem>
+                                  <SelectItem value="nat">NAT</SelectItem>
+                                  <SelectItem value="other">Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      
+                      <FormField
+                        control={form.control}
+                        name="firewallRules"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Additional Rule Information</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                placeholder="Additional rule details, specific firewall syntax, etc." 
+                                className="min-h-[60px]"
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                  
                   <DialogFooter>
                     <Button type="submit" disabled={createRequestMutation.isPending}>
                       {createRequestMutation.isPending && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
-                      Submit Request
+                      Submit Change Request
                     </Button>
                   </DialogFooter>
                 </form>

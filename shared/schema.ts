@@ -118,11 +118,13 @@ export const insertDeviceSchema = createInsertSchema(devices).pick({
   status: true,
 });
 
-// Change request model with RACI matrix support
+// Change request model with RACI matrix support and sequential workflow
 export const changeRequests = pgTable("change_requests", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
-  status: text("status").notNull(), // draft, pending_review, pending_approval, approved, rejected, implemented, closed
+  // Enhanced workflow statuses for the sequential approval chain
+  status: text("status").notNull().default("draft"), // draft, pending_security_review, pending_technical_review, pending_business_review, approved, rejected, scheduled, implemented, verified, closed
+  type: text("type").notNull().default("standard"), // standard, firewall, server, network, emergency
   riskLevel: text("risk_level").notNull().default("medium"), // low, medium, high, critical
   description: text("description").notNull(),
   
@@ -130,7 +132,7 @@ export const changeRequests = pgTable("change_requests", {
   requestedBy: integer("requested_by").notNull(), // Requester (Responsible)
   assignedTo: integer("assigned_to"), // Implementer (Responsible)
   
-  // Multiple approvals based on RACI matrix
+  // Multiple approvals based on RACI matrix with sequential workflow
   technicalApprovalStatus: text("technical_approval_status").default("pending"), // pending, approved, rejected
   technicalApproverId: integer("technical_approver_id"), // CTO or delegate (Accountable)
   technicalApprovedAt: timestamp("technical_approved_at"),
@@ -143,7 +145,17 @@ export const changeRequests = pgTable("change_requests", {
   businessApproverId: integer("business_approver_id"), // Business owner (Accountable)
   businessApprovedAt: timestamp("business_approved_at"),
   
-  // Dates
+  // Implementation and verification tracking
+  implementerId: integer("implementer_id"), // Person who implemented the change
+  implementationNotes: text("implementation_notes"), // Notes about how the change was implemented
+  
+  // Verification (controller)
+  verificationStatus: text("verification_status").default("pending"), // pending, verified, failed
+  verifierId: integer("verifier_id"), // Person who verified the change (Controller)
+  verifiedAt: timestamp("verified_at"),
+  verificationNotes: text("verification_notes"), // Notes about verification
+  
+  // Dates for workflow stages
   requestedAt: timestamp("requested_at").notNull().defaultNow(),
   scheduledFor: timestamp("scheduled_for"), // When the change is scheduled to occur
   implementedAt: timestamp("implemented_at"),
@@ -154,17 +166,31 @@ export const changeRequests = pgTable("change_requests", {
   backoutPlan: text("backout_plan"), // Plan to revert changes if issues occur
   relatedControlIds: text("related_control_ids").array(), // Related compliance controls
   comments: text("comments"), // Any additional notes or comments
+  
+  // Firewall-specific fields
+  firewallRules: text("firewall_rules"), // JSON string containing firewall rule specifications
+  sourceIp: text("source_ip"), // Source IP or network
+  destinationIp: text("destination_ip"), // Destination IP or network
+  portServices: text("port_services"), // Ports and services affected
+  action: text("action"), // allow, deny, etc.
 });
 
 export const insertChangeRequestSchema = createInsertSchema(changeRequests).pick({
   title: true,
   description: true,
   requestedBy: true,
+  type: true,
   riskLevel: true,
   scheduledFor: true,
   affectedSystems: true,
   backoutPlan: true,
   relatedControlIds: true,
+  // Firewall-specific fields
+  firewallRules: true,
+  sourceIp: true,
+  destinationIp: true,
+  portServices: true,
+  action: true,
 });
 
 // Task model

@@ -334,8 +334,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Approve change request
-  app.put("/api/change-requests/:id/approve", isAuthenticated, async (req, res) => {
+  // Submit change request for security review
+  app.put("/api/change-requests/:id/submit", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const changeRequest = await storage.getChangeRequest(id);
@@ -344,39 +344,241 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Change request not found" });
       }
       
-      if (changeRequest.status !== "pending") {
-        return res.status(400).json({ message: "Change request is not in pending status" });
+      if (changeRequest.status !== "draft") {
+        return res.status(400).json({ message: "Change request must be in draft status to submit" });
       }
       
-      // Only certain roles can approve change requests
-      if (req.user!.role !== "admin" && req.user!.role !== "approver") {
-        return res.status(403).json({ message: "Not authorized to approve change requests" });
+      // Only the requester or admin can submit the change request
+      if (changeRequest.requestedBy !== req.user!.id && req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized to submit this change request" });
+      }
+      
+      // Determine the first approval stage based on the type of change
+      let nextStatus = "pending_security_review";
+      if (changeRequest.type === "emergency") {
+        nextStatus = "pending_technical_review"; // Skip security review for emergency changes
       }
       
       const updatedRequest = await storage.updateChangeRequest(id, {
-        status: "approved",
-        approverId: req.user!.id,
-        approvedAt: new Date()
+        status: nextStatus
       });
       
       await logAuditAction(
         req.user!.id,
-        "approve_change_request",
+        "submit_change_request",
         "change_request",
         id.toString(),
-        `Approved change request ID: ${id}`
+        `Submitted change request ID: ${id} for approval`
       );
       
       res.json(updatedRequest);
     } catch (error) {
-      res.status(500).json({ message: "Failed to approve change request" });
+      res.status(500).json({ message: "Failed to submit change request" });
     }
   });
 
-  // Implement change request
-  app.put("/api/change-requests/:id/implement", isAuthenticated, async (req, res) => {
+  // Security approval step
+  app.put("/api/change-requests/:id/security-approval", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const { approved, comments } = req.body;
+      const changeRequest = await storage.getChangeRequest(id);
+      
+      if (!changeRequest) {
+        return res.status(404).json({ message: "Change request not found" });
+      }
+      
+      if (changeRequest.status !== "pending_security_review") {
+        return res.status(400).json({ message: "Change request is not awaiting security review" });
+      }
+      
+      // Only security roles can provide security approval
+      if (req.user!.role !== "admin" && req.user!.role !== "ciso" && req.user!.role !== "security_manager") {
+        return res.status(403).json({ message: "Not authorized to provide security approval" });
+      }
+      
+      // If rejected, update status and don't proceed further
+      if (!approved) {
+        const updatedRequest = await storage.updateChangeRequest(id, {
+          status: "rejected",
+          securityApprovalStatus: "rejected",
+          securityApproverId: req.user!.id,
+          securityApprovedAt: new Date(),
+          comments: comments || changeRequest.comments
+        });
+        
+        await logAuditAction(
+          req.user!.id,
+          "reject_security_approval",
+          "change_request",
+          id.toString(),
+          `Rejected security approval for change request ID: ${id}`
+        );
+        
+        return res.json(updatedRequest);
+      }
+      
+      // If approved, move to the next stage (technical review)
+      const updatedRequest = await storage.updateChangeRequest(id, {
+        status: "pending_technical_review",
+        securityApprovalStatus: "approved",
+        securityApproverId: req.user!.id,
+        securityApprovedAt: new Date(),
+        comments: comments || changeRequest.comments
+      });
+      
+      await logAuditAction(
+        req.user!.id,
+        "approve_security_review",
+        "change_request",
+        id.toString(),
+        `Approved security review for change request ID: ${id}`
+      );
+      
+      res.json(updatedRequest);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to process security approval" });
+    }
+  });
+
+  // Technical approval step
+  app.put("/api/change-requests/:id/technical-approval", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { approved, comments } = req.body;
+      const changeRequest = await storage.getChangeRequest(id);
+      
+      if (!changeRequest) {
+        return res.status(404).json({ message: "Change request not found" });
+      }
+      
+      if (changeRequest.status !== "pending_technical_review") {
+        return res.status(400).json({ message: "Change request is not awaiting technical review" });
+      }
+      
+      // Only technical roles can provide technical approval
+      if (req.user!.role !== "admin" && req.user!.role !== "cto" && req.user!.role !== "network_admin") {
+        return res.status(403).json({ message: "Not authorized to provide technical approval" });
+      }
+      
+      // If rejected, update status and don't proceed further
+      if (!approved) {
+        const updatedRequest = await storage.updateChangeRequest(id, {
+          status: "rejected",
+          technicalApprovalStatus: "rejected",
+          technicalApproverId: req.user!.id,
+          technicalApprovedAt: new Date(),
+          comments: comments || changeRequest.comments
+        });
+        
+        await logAuditAction(
+          req.user!.id,
+          "reject_technical_approval",
+          "change_request",
+          id.toString(),
+          `Rejected technical approval for change request ID: ${id}`
+        );
+        
+        return res.json(updatedRequest);
+      }
+      
+      // If approved, move to the next stage (business review for high-risk, or directly approved for lower risk)
+      let nextStatus = "pending_business_review";
+      if (changeRequest.riskLevel === "low" || changeRequest.riskLevel === "medium") {
+        nextStatus = "approved"; // Skip business review for low/medium risk changes
+      }
+      
+      const updatedRequest = await storage.updateChangeRequest(id, {
+        status: nextStatus,
+        technicalApprovalStatus: "approved",
+        technicalApproverId: req.user!.id,
+        technicalApprovedAt: new Date(),
+        comments: comments || changeRequest.comments
+      });
+      
+      await logAuditAction(
+        req.user!.id,
+        "approve_technical_review",
+        "change_request",
+        id.toString(),
+        `Approved technical review for change request ID: ${id}, new status: ${nextStatus}`
+      );
+      
+      res.json(updatedRequest);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to process technical approval" });
+    }
+  });
+
+  // Business approval step (for high-risk changes)
+  app.put("/api/change-requests/:id/business-approval", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { approved, comments } = req.body;
+      const changeRequest = await storage.getChangeRequest(id);
+      
+      if (!changeRequest) {
+        return res.status(404).json({ message: "Change request not found" });
+      }
+      
+      if (changeRequest.status !== "pending_business_review") {
+        return res.status(400).json({ message: "Change request is not awaiting business review" });
+      }
+      
+      // Only management roles can provide business approval
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized to provide business approval" });
+      }
+      
+      // If rejected, update status and don't proceed further
+      if (!approved) {
+        const updatedRequest = await storage.updateChangeRequest(id, {
+          status: "rejected",
+          businessApprovalStatus: "rejected",
+          businessApproverId: req.user!.id,
+          businessApprovedAt: new Date(),
+          comments: comments || changeRequest.comments
+        });
+        
+        await logAuditAction(
+          req.user!.id,
+          "reject_business_approval",
+          "change_request",
+          id.toString(),
+          `Rejected business approval for change request ID: ${id}`
+        );
+        
+        return res.json(updatedRequest);
+      }
+      
+      // If approved, mark as approved and ready for implementation
+      const updatedRequest = await storage.updateChangeRequest(id, {
+        status: "approved",
+        businessApprovalStatus: "approved",
+        businessApproverId: req.user!.id,
+        businessApprovedAt: new Date(),
+        comments: comments || changeRequest.comments
+      });
+      
+      await logAuditAction(
+        req.user!.id,
+        "approve_business_review",
+        "change_request",
+        id.toString(),
+        `Approved business review for change request ID: ${id}`
+      );
+      
+      res.json(updatedRequest);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to process business approval" });
+    }
+  });
+
+  // Schedule approved change
+  app.put("/api/change-requests/:id/schedule", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { scheduledFor } = req.body;
       const changeRequest = await storage.getChangeRequest(id);
       
       if (!changeRequest) {
@@ -384,7 +586,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (changeRequest.status !== "approved") {
-        return res.status(400).json({ message: "Change request must be approved before implementation" });
+        return res.status(400).json({ message: "Change request must be approved before scheduling" });
+      }
+      
+      // Only implementers or admins can schedule
+      if (req.user!.role !== "admin" && req.user!.role !== "implementer") {
+        return res.status(403).json({ message: "Not authorized to schedule this change request" });
+      }
+      
+      const updatedRequest = await storage.updateChangeRequest(id, {
+        status: "scheduled",
+        scheduledFor: new Date(scheduledFor),
+        assignedTo: req.user!.id
+      });
+      
+      await logAuditAction(
+        req.user!.id,
+        "schedule_change_request",
+        "change_request",
+        id.toString(),
+        `Scheduled change request ID: ${id} for ${scheduledFor}`
+      );
+      
+      res.json(updatedRequest);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to schedule change request" });
+    }
+  });
+
+  // Implement change request
+  app.put("/api/change-requests/:id/implement", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { implementationNotes } = req.body;
+      const changeRequest = await storage.getChangeRequest(id);
+      
+      if (!changeRequest) {
+        return res.status(404).json({ message: "Change request not found" });
+      }
+      
+      if (changeRequest.status !== "scheduled" && changeRequest.status !== "approved") {
+        return res.status(400).json({ message: "Change request must be approved or scheduled before implementation" });
       }
       
       // Only certain roles can implement change requests
@@ -392,10 +634,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Not authorized to implement change requests" });
       }
       
+      // For firewall changes, implementer must be a network admin
+      if (changeRequest.type === "firewall" && req.user!.role !== "admin" && req.user!.role !== "network_admin") {
+        return res.status(403).json({ message: "Only network admins can implement firewall changes" });
+      }
+      
       const updatedRequest = await storage.updateChangeRequest(id, {
         status: "implemented",
         implementerId: req.user!.id,
-        implementedAt: new Date()
+        implementedAt: new Date(),
+        implementationNotes: implementationNotes || null
       });
       
       await logAuditAction(
@@ -409,6 +657,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedRequest);
     } catch (error) {
       res.status(500).json({ message: "Failed to implement change request" });
+    }
+  });
+  
+  // Verify implementation (controller)
+  app.put("/api/change-requests/:id/verify", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { verified, verificationNotes } = req.body;
+      const changeRequest = await storage.getChangeRequest(id);
+      
+      if (!changeRequest) {
+        return res.status(404).json({ message: "Change request not found" });
+      }
+      
+      if (changeRequest.status !== "implemented") {
+        return res.status(400).json({ message: "Change request must be implemented before verification" });
+      }
+      
+      // Only auditor or admin roles can verify changes (controller)
+      if (req.user!.role !== "admin" && req.user!.role !== "auditor") {
+        return res.status(403).json({ message: "Not authorized to verify change requests" });
+      }
+      
+      // Verifier should not be the same as the implementer
+      if (changeRequest.implementerId === req.user!.id) {
+        return res.status(403).json({ message: "Change request must be verified by someone other than the implementer" });
+      }
+      
+      let newStatus = "closed";
+      let verificationStatus = "verified";
+      
+      if (!verified) {
+        newStatus = "implemented"; // Keep as implemented if verification fails
+        verificationStatus = "failed";
+      }
+      
+      const updatedRequest = await storage.updateChangeRequest(id, {
+        status: newStatus,
+        verificationStatus,
+        verifierId: req.user!.id,
+        verifiedAt: new Date(),
+        verificationNotes: verificationNotes || null,
+        closedAt: verified ? new Date() : null
+      });
+      
+      await logAuditAction(
+        req.user!.id,
+        verified ? "verify_change_request" : "reject_verification",
+        "change_request",
+        id.toString(),
+        `${verified ? "Verified" : "Failed verification for"} change request ID: ${id}`
+      );
+      
+      res.json(updatedRequest);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to verify change request" });
     }
   });
 
