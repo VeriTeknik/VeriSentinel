@@ -20,7 +20,7 @@ import type {
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { eq, desc, and, isNull, or } from "drizzle-orm";
+import { eq, desc, and, isNull, or, inArray } from "drizzle-orm";
 import { neon } from "@neondatabase/serverless";
 import connectPg from "connect-pg-simple";
 import pg from "pg";
@@ -553,7 +553,8 @@ export class MemStorage implements IStorage {
       }
       return {
         ...device,
-        impact: relation.impact,
+        // Ensure impact is never null, default to 'affected'
+        impact: relation.impact ?? 'affected',
         notes: relation.notes
       };
     });
@@ -1061,11 +1062,13 @@ export class PostgresStorage implements IStorage {
     
     const ids = changeRequestIds.map(relation => relation.changeRequestId);
     
-    return await db.select()
-      .from(changeRequests)
-      .where(
-        ids.map(id => eq(changeRequests.id, id)).reduce((prev, curr) => or(prev, curr))
-      );
+    // Use SQL IN operator via raw SQL query
+    const result = await db.execute(`
+      SELECT * FROM "change_requests" 
+      WHERE "id" IN (${ids.join(',')})
+    `);
+    
+    return result as unknown as ChangeRequest[];
   }
 }
 
