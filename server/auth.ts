@@ -155,8 +155,9 @@ export function setupAuth(app: Express) {
   app.get("/api/users", (req, res, next) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
-    // Check if user has admin role
-    if (req.user.role !== "admin") {
+    // Check if user has management role
+    const managementRoles = ["admin", "ciso", "cto", "security_manager", "network_engineer"];
+    if (!managementRoles.includes(req.user.role)) {
       return res.status(403).send("Unauthorized access");
     }
     

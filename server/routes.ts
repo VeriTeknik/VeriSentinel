@@ -980,8 +980,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Audit Logs API
   app.get("/api/audit-logs", isAuthenticated, async (req, res) => {
     try {
-      // Only admins can view all audit logs
-      if (req.user!.role !== "admin") {
+      // Management roles can view all audit logs
+      const managementRoles = ["admin", "ciso", "cto", "security_manager", "compliance_officer"];
+      if (!managementRoles.includes(req.user!.role)) {
         return res.status(403).json({ message: "Not authorized to view audit logs" });
       }
       
