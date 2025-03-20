@@ -15,7 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Task, ComplianceControl, Sprint, User, insertTaskSchema } from "@shared/schema";
+import { Task, ComplianceControl, Sprint, User, ChangeRequest, insertTaskSchema } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 
 // Task card component
