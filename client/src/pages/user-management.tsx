@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, UserPlus, Pencil } from "lucide-react";
+import { Loader2, Plus, UserPlus, Pencil, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,6 +18,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User, insertUserSchema } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function UserManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -44,6 +45,28 @@ export default function UserManagement() {
     gcTime: 0,      // Don't keep unused data in cache
     refetchOnMount: true  // Always refetch on mount
   });
+
+  // Check if required roles are present
+  const checkRequiredRoles = () => {
+    if (!users) return null;
+
+    const hasRequester = users.some(user => user.role === "user");
+    const hasApprover = users.some(user => 
+      ["security_manager", "ciso", "cto"].includes(user.role)
+    );
+    const hasImplementer = users.some(user => 
+      ["network_engineer", "admin"].includes(user.role)
+    );
+
+    const missingRoles = [];
+    if (!hasRequester) missingRoles.push("Requester (User)");
+    if (!hasApprover) missingRoles.push("Reviewer/Approver (Security Manager, CISO, or CTO)");
+    if (!hasImplementer) missingRoles.push("Implementer (Network Engineer or Admin)");
+
+    return missingRoles.length > 0 ? missingRoles : null;
+  };
+
+  const missingRoles = checkRequiredRoles();
 
   // User form schema
   const userFormSchema = z.object({
@@ -81,8 +104,18 @@ export default function UserManagement() {
       if (!canManageUsers) {
         throw new Error("You don't have permission to create users");
       }
-      const res = await apiRequest("POST", "/api/register", data);
-      return res.json();
+      try {
+        const res = await apiRequest("POST", "/api/register", data);
+        if (!res.ok) {
+          const errorData = await res.text();
+          console.error('Create user error response:', errorData);
+          throw new Error(`Failed to create user: ${res.status} ${res.statusText}`);
+        }
+        return res.json();
+      } catch (error) {
+        console.error('Create user error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
@@ -96,7 +129,7 @@ export default function UserManagement() {
     onError: (error: any) => {
       toast({
         title: "Failed to Create User",
-        description: error.message,
+        description: error.message || "An unexpected error occurred",
         variant: "destructive",
       });
     },
@@ -222,6 +255,21 @@ export default function UserManagement() {
 
   return (
     <DashboardLayout title="User Management">
+      {missingRoles && (
+        <Alert className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Missing Required Roles</AlertTitle>
+          <AlertDescription>
+            The following roles are required for any type of change management but are not assigned:
+            <ul className="list-disc list-inside mt-2">
+              {missingRoles.map((role, index) => (
+                <li key={index}>{role}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="mb-4 p-4 bg-muted rounded-lg">
         <h3 className="font-semibold mb-2">Debug Information</h3>
         <p>Current Role: {currentUser?.role || 'Not logged in'}</p>
