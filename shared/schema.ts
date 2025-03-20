@@ -201,8 +201,13 @@ export const tasks = pgTable("tasks", {
   status: text("status").notNull(), // todo, in-progress, review, completed
   assignedTo: integer("assigned_to"),
   relatedControlId: integer("related_control_id"),
+  relatedChangeRequestId: integer("related_change_request_id"),
+  priority: text("priority").default("medium"), // low, medium, high, critical
   dueDate: timestamp("due_date"),
   sprintId: integer("sprint_id"),
+  createdBy: integer("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertTaskSchema = createInsertSchema(tasks).pick({
@@ -211,8 +216,11 @@ export const insertTaskSchema = createInsertSchema(tasks).pick({
   status: true,
   assignedTo: true,
   relatedControlId: true,
+  relatedChangeRequestId: true,
+  priority: true,
   dueDate: true,
   sprintId: true,
+  createdBy: true,
 });
 
 // Sprint model
