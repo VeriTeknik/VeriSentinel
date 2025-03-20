@@ -11,14 +11,7 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   // Enhanced roles for RACI matrix
   role: text("role").notNull().default("user"), // admin, ciso, cto, security_manager, network_admin, system_admin, auditor, user
-  department: text("department"), // IT, Security, Operations, Compliance, Executive, etc.
-  isApprover: boolean("is_approver").default(false), // Can approve change requests
-  isRequester: boolean("is_requester").default(false), // Can request changes
-  approvalLevel: integer("approval_level").default(0), // 0=no approval powers, 1=L1, 2=L2, 3=L3 (CISO/CTO level)
-  pciResponsibilities: text("pci_responsibilities").array(), // List of PCI-DSS requirements they're responsible for
   avatar: text("avatar"),
-  lastLogin: timestamp("last_login"),
-  isActive: boolean("is_active").default(true),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -27,11 +20,6 @@ export const insertUserSchema = createInsertSchema(users).pick({
   name: true,
   email: true,
   role: true,
-  department: true, 
-  isApprover: true,
-  isRequester: true,
-  approvalLevel: true,
-  pciResponsibilities: true,
 });
 
 // Compliance framework model
