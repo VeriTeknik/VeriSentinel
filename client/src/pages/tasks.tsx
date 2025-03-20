@@ -179,12 +179,12 @@ export default function Tasks() {
     title: z.string().min(1, "Title is required"),
     description: z.string().optional(),
     status: z.string().min(1, "Status is required"),
-    assignedTo: z.string().optional().transform(val => val ? parseInt(val) : undefined),
-    relatedControlId: z.string().optional().transform(val => val ? parseInt(val) : undefined),
-    relatedChangeRequestId: z.string().optional().transform(val => val ? parseInt(val) : undefined),
+    assignedTo: z.string().optional().transform(val => val && val !== "none" ? parseInt(val) : undefined),
+    relatedControlId: z.string().optional().transform(val => val && val !== "none" ? parseInt(val) : undefined),
+    relatedChangeRequestId: z.string().optional().transform(val => val && val !== "none" ? parseInt(val) : undefined),
     priority: z.string().default("medium"),
     dueDate: z.string().optional().transform(val => val ? new Date(val) : undefined),
-    sprintId: z.string().optional().transform(val => val ? parseInt(val) : undefined),
+    sprintId: z.string().optional().transform(val => val && val !== "none" ? parseInt(val) : undefined),
     createdBy: z.number().optional(),
   });
 
@@ -387,7 +387,7 @@ export default function Tasks() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">None</SelectItem>
+                              <SelectItem value="none">None</SelectItem>
                               {controls?.map(control => (
                                 <SelectItem key={control.id} value={control.id.toString()}>
                                   {control.name}
@@ -457,7 +457,7 @@ export default function Tasks() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">No Sprint</SelectItem>
+                              <SelectItem value="none">No Sprint</SelectItem>
                               {sprints?.map(sprint => (
                                 <SelectItem key={sprint.id} value={sprint.id.toString()}>
                                   {sprint.name}
@@ -484,7 +484,7 @@ export default function Tasks() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="none">None</SelectItem>
                             {changeRequests?.map(request => (
                               <SelectItem key={request.id} value={request.id.toString()}>
                                 {request.title} - {request.status}
