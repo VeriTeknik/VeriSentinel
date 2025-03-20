@@ -81,6 +81,11 @@ export const sites = pgTable("sites", {
   type: text("type").notNull(), // primary, dr, branch
   location: text("location"),
   description: text("description"),
+  securityAdminId: integer("security_admin_id"), // CISO or delegate responsible for site security
+  siteAdminId: integer("site_admin_id"), // Admin responsible for overall site management
+  emergencyContactId: integer("emergency_contact_id"), // Emergency contact person
+  lastAuditDate: timestamp("last_audit_date"), // When was the site last audited
+  securityLevel: text("security_level"), // low, medium, high, critical
 });
 
 export const insertSiteSchema = createInsertSchema(sites).pick({
@@ -88,6 +93,10 @@ export const insertSiteSchema = createInsertSchema(sites).pick({
   type: true,
   location: true,
   description: true,
+  securityAdminId: true,
+  siteAdminId: true,
+  emergencyContactId: true,
+  securityLevel: true,
 });
 
 // Device model
@@ -103,6 +112,10 @@ export const devices = pgTable("devices", {
   operatingSystem: text("operating_system"),
   services: text("services"),
   status: text("status").notNull(),
+  ownerId: integer("owner_id"),  // User responsible for this device
+  responsibilityType: text("responsibility_type"), // primary, secondary, backup
+  lastMaintenanceDate: timestamp("last_maintenance_date"),
+  maintenanceNotes: text("maintenance_notes"),
 });
 
 export const insertDeviceSchema = createInsertSchema(devices).pick({
@@ -116,6 +129,10 @@ export const insertDeviceSchema = createInsertSchema(devices).pick({
   operatingSystem: true,
   services: true,
   status: true,
+  ownerId: true,
+  responsibilityType: true,
+  lastMaintenanceDate: true,
+  maintenanceNotes: true,
 });
 
 // Change request model with RACI matrix support and sequential workflow

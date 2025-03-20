@@ -348,7 +348,12 @@ export class MemStorage implements IStorage {
       name: site.name,
       type: site.type,
       location: site.location || null,
-      description: site.description || null
+      description: site.description || null,
+      securityAdminId: site.securityAdminId || null,
+      siteAdminId: site.siteAdminId || null,
+      emergencyContactId: site.emergencyContactId || null,
+      lastAuditDate: null,
+      securityLevel: site.securityLevel || null
     };
     this.siteData.set(id, newSite);
     return newSite;
@@ -376,7 +381,11 @@ export class MemStorage implements IStorage {
       ipAddress: device.ipAddress || null,
       vlan: device.vlan || null,
       operatingSystem: device.operatingSystem || null,
-      services: device.services || null
+      services: device.services || null,
+      ownerId: device.ownerId || null,
+      responsibilityType: device.responsibilityType || null,
+      lastMaintenanceDate: device.lastMaintenanceDate || null,
+      maintenanceNotes: device.maintenanceNotes || null
     };
     this.deviceData.set(id, newDevice);
     return newDevice;
