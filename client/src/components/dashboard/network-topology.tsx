@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Filter, Download } from 'lucide-react';
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 
 interface TopologyNode {
   id: number;
@@ -22,6 +22,7 @@ interface DeviceNode {
 }
 
 export function NetworkTopology() {
+  const [_, navigate] = useLocation();
   const { data: topology, isLoading } = useQuery<TopologyNode[]>({ 
     queryKey: ['/api/topology'] 
   });
@@ -299,11 +300,12 @@ export function NetworkTopology() {
         </div>
       </div>
       <div className="bg-gray-50 px-5 py-3 border-t border-gray-200">
-        <Link href="/network-topology">
-          <a className="text-sm font-medium text-primary-600 hover:text-primary-700">
-            View full network topology →
-          </a>
-        </Link>
+        <button 
+          onClick={() => navigate('/network-topology')} 
+          className="text-sm font-medium text-primary-600 hover:text-primary-700 border-none bg-transparent p-0"
+        >
+          View full network topology →
+        </button>
       </div>
     </div>
   );

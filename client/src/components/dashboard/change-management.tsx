@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'wouter';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { ChangeRequest } from '@shared/schema';
 
 export function ChangeManagement() {
+  const [_, navigate] = useLocation();
   const { data: changeRequests, isLoading } = useQuery<ChangeRequest[]>({ 
     queryKey: ['/api/change-requests'] 
   });
@@ -102,9 +103,12 @@ export function ChangeManagement() {
                       })}
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <Link href={`/change-management/${request.id}`}>
-                        <a className="text-primary-600 hover:text-primary-900">View</a>
-                      </Link>
+                      <button 
+                        onClick={() => navigate(`/change-management/${request.id}`)} 
+                        className="text-primary-600 hover:text-primary-900 border-none bg-transparent p-0"
+                      >
+                        View
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -120,11 +124,12 @@ export function ChangeManagement() {
         </div>
       </div>
       <div className="bg-gray-50 px-5 py-3 border-t border-gray-200">
-        <Link href="/change-management">
-          <a className="text-sm font-medium text-primary-600 hover:text-primary-700">
-            View all change requests →
-          </a>
-        </Link>
+        <button 
+          onClick={() => navigate('/change-management')} 
+          className="text-sm font-medium text-primary-600 hover:text-primary-700 border-none bg-transparent p-0"
+        >
+          View all change requests →
+        </button>
       </div>
     </div>
   );
