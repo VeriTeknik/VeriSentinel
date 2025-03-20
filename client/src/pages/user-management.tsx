@@ -23,6 +23,10 @@ export default function UserManagement() {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
 
+  // Check if user has management permissions
+  const managementRoles = ["admin", "ciso", "cto", "security_manager", "network_engineer"];
+  const hasManagementPermission = currentUser ? managementRoles.includes(currentUser.role) : false;
+
   // Fetch users
   const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ['/api/users']
@@ -81,6 +85,13 @@ export default function UserManagement() {
     switch (role) {
       case "admin":
         return "bg-error-100 text-error-800";
+      case "ciso":
+      case "cto":
+        return "bg-purple-100 text-purple-800";
+      case "security_manager":
+        return "bg-amber-100 text-amber-800";
+      case "network_engineer":
+        return "bg-blue-100 text-blue-800";
       case "approver":
         return "bg-warning-100 text-warning-800";
       case "implementer":
@@ -101,15 +112,12 @@ export default function UserManagement() {
     );
   }
 
-  // Check if user has admin permissions
-  const hasAdminPermission = currentUser?.role === "admin";
-
   return (
     <DashboardLayout title="User Management">
       <div className="mb-6 flex justify-between items-center">
         <h1 className="text-2xl font-semibold">User Management</h1>
         <div className="flex space-x-2">
-          {hasAdminPermission && (
+          {hasManagementPermission && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -199,6 +207,10 @@ export default function UserManagement() {
                               <SelectItem value="user">User</SelectItem>
                               <SelectItem value="approver">Approver</SelectItem>
                               <SelectItem value="implementer">Implementer</SelectItem>
+                              <SelectItem value="security_manager">Security Manager</SelectItem>
+                              <SelectItem value="network_engineer">Network Engineer</SelectItem>
+                              <SelectItem value="ciso">CISO</SelectItem>
+                              <SelectItem value="cto">CTO</SelectItem>
                               <SelectItem value="admin">Administrator</SelectItem>
                             </SelectContent>
                           </Select>
@@ -250,12 +262,12 @@ export default function UserManagement() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {hasAdminPermission && (
+                      {hasManagementPermission && (
                         <Button 
                           variant="ghost" 
                           size="sm" 
                           className="text-primary-600 hover:text-primary-700"
-                          disabled={!hasAdminPermission}
+                          disabled={!hasManagementPermission}
                         >
                           Edit
                         </Button>
@@ -266,7 +278,7 @@ export default function UserManagement() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-4">
-                    {hasAdminPermission 
+                    {hasManagementPermission 
                       ? "No users found. Add your first user to get started." 
                       : "You don't have permission to view users."}
                   </TableCell>

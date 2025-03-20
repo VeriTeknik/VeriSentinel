@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'wouter';
+import { useLocation } from 'wouter';
 import { AuditLog } from '@shared/schema';
 import { 
   CheckCircle, 
@@ -126,11 +126,12 @@ export function AuditLogComponent() {
         </ul>
       </div>
       <div className="bg-gray-50 px-5 py-3 border-t border-gray-200">
-        <Link href="/audit-logs">
-          <a className="text-sm font-medium text-primary-600 hover:text-primary-700">
-            View all activity →
-          </a>
-        </Link>
+        <button 
+          onClick={() => navigate('/audit-logs')} 
+          className="text-sm font-medium text-primary-600 hover:text-primary-700"
+        >
+          View all activity →
+        </button>
       </div>
     </div>
   );
