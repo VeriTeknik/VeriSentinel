@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import DashboardLayout from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, CheckCircle, XCircle, AlertTriangle, Search, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,11 +21,27 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { ChangeRequest, insertChangeRequestSchema } from "@shared/schema";
 
+// Import our custom components
+import { DetailsView } from "@/components/change-management/details-view";
+import { StatusBadge } from "@/components/change-management/status-badge";
+import { ApprovalDialog } from "@/components/change-management/approval-dialog";
+import { ScheduleDialog } from "@/components/change-management/schedule-dialog";
+import { ImplementDialog } from "@/components/change-management/implement-dialog";
+import { VerifyDialog } from "@/components/change-management/verify-dialog";
+
 export default function ChangeManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedRequest, setSelectedRequest] = useState<ChangeRequest | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  
+  // Add dialog states for different approvals and actions
+  const [securityApprovalOpen, setSecurityApprovalOpen] = useState(false);
+  const [technicalApprovalOpen, setTechnicalApprovalOpen] = useState(false);
+  const [businessApprovalOpen, setBusinessApprovalOpen] = useState(false);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [implementDialogOpen, setImplementDialogOpen] = useState(false);
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const { user } = useAuth();
@@ -1104,6 +1120,90 @@ export default function ChangeManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Dialog components for various workflow steps */}
+      {selectedRequest && (
+        <>
+          {/* Security Approval Dialog */}
+          <ApprovalDialog 
+            isOpen={securityApprovalOpen}
+            onClose={() => setSecurityApprovalOpen(false)}
+            onApprove={(approved, comments) => {
+              if (selectedRequest) {
+                handleSecurityApproval(selectedRequest.id, approved, comments);
+                setSecurityApprovalOpen(false);
+              }
+            }}
+            approvalType="security"
+            isApproving={securityApprovalMutation.isPending}
+          />
+          
+          {/* Technical Approval Dialog */}
+          <ApprovalDialog 
+            isOpen={technicalApprovalOpen}
+            onClose={() => setTechnicalApprovalOpen(false)}
+            onApprove={(approved, comments) => {
+              if (selectedRequest) {
+                handleTechnicalApproval(selectedRequest.id, approved, comments);
+                setTechnicalApprovalOpen(false);
+              }
+            }}
+            approvalType="technical"
+            isApproving={technicalApprovalMutation.isPending}
+          />
+          
+          {/* Business Approval Dialog */}
+          <ApprovalDialog 
+            isOpen={businessApprovalOpen}
+            onClose={() => setBusinessApprovalOpen(false)}
+            onApprove={(approved, comments) => {
+              if (selectedRequest) {
+                handleBusinessApproval(selectedRequest.id, approved, comments);
+                setBusinessApprovalOpen(false);
+              }
+            }}
+            approvalType="business"
+            isApproving={businessApprovalMutation.isPending}
+          />
+          
+          {/* Schedule Dialog */}
+          <ScheduleDialog
+            isOpen={scheduleDialogOpen}
+            onClose={() => setScheduleDialogOpen(false)}
+            onSchedule={(scheduledDateTime) => {
+              if (selectedRequest) {
+                handleScheduleChange(selectedRequest.id, scheduledDateTime);
+                setScheduleDialogOpen(false);
+              }
+            }}
+          />
+          
+          {/* Implement Dialog */}
+          <ImplementDialog
+            isOpen={implementDialogOpen}
+            onClose={() => setImplementDialogOpen(false)}
+            onImplement={(implementationNotes) => {
+              if (selectedRequest) {
+                handleImplementRequest(selectedRequest.id, implementationNotes);
+                setImplementDialogOpen(false);
+              }
+            }}
+          />
+          
+          {/* Verify Dialog */}
+          <VerifyDialog
+            isOpen={verifyDialogOpen}
+            onClose={() => setVerifyDialogOpen(false)}
+            onVerify={(verified, verificationNotes) => {
+              if (selectedRequest) {
+                handleVerifyRequest(selectedRequest.id, verified, verificationNotes);
+                setVerifyDialogOpen(false);
+              }
+            }}
+            isApproving={verifyRequestMutation.isPending}
+          />
+        </>
+      )}
     </DashboardLayout>
   );
 }
