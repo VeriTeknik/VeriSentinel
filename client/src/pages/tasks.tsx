@@ -30,6 +30,10 @@ const TaskCard = ({ task, onStatusChange, isPending }: TaskCardProps) => {
     queryKey: ['/api/change-requests']
   });
   
+  const { data: users } = useQuery<User[]>({
+    queryKey: ['/api/users']
+  });
+  
   const getSeverityClass = (task: Task) => {
     if (task.priority === "critical") {
       return "bg-error-100 text-error-800";
@@ -40,6 +44,12 @@ const TaskCard = ({ task, onStatusChange, isPending }: TaskCardProps) => {
     } else {
       return "bg-success-100 text-success-800";
     }
+  };
+  
+  const getTaskCreator = () => {
+    if (!task.createdBy || !users) return null;
+    const creator = users.find(u => u.id === task.createdBy);
+    return creator?.name || creator?.username || 'Unknown';
   };
 
   const getNextStatus = (currentStatus: string) => {
@@ -96,12 +106,27 @@ const TaskCard = ({ task, onStatusChange, isPending }: TaskCardProps) => {
         </div>
       )}
       
+      {/* Timestamps and creator info */}
+      <div className="mt-2 mb-1 text-xs text-gray-400 flex justify-between">
+        {task.createdAt && (
+          <span>Created: {new Date(task.createdAt).toLocaleDateString()}</span>
+        )}
+        {task.updatedAt && task.updatedAt !== task.createdAt && (
+          <span>Updated: {new Date(task.updatedAt).toLocaleDateString()}</span>
+        )}
+      </div>
+      
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-500">
-          {task.dueDate 
-            ? `Due: ${new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` 
-            : "No due date"}
-        </span>
+        <div className="flex flex-col">
+          <span className="text-xs text-gray-500">
+            {task.dueDate 
+              ? `Due: ${new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` 
+              : "No due date"}
+          </span>
+          {task.createdBy && (
+            <span className="text-xs text-gray-400">By: {getTaskCreator()}</span>
+          )}
+        </div>
         <div className="flex items-center space-x-2">
           <div className="h-6 w-6 rounded-full bg-primary-700 text-white flex items-center justify-center text-xs">
             {task.assignedTo ? "A" : "U"}
@@ -382,7 +407,11 @@ export default function Tasks() {
                         <FormItem>
                           <FormLabel>Due Date</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} />
+                            <Input 
+                              type="date" 
+                              {...field}
+                              value={field.value ? (typeof field.value === 'string' ? field.value : new Date(field.value).toISOString().split('T')[0]) : ''}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

@@ -865,8 +865,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tasks", isAuthenticated, async (req, res) => {
     try {
-      const validatedData = insertTaskSchema.parse(req.body);
+      const taskData = {
+        ...req.body,
+        createdBy: req.user!.id // Always set current user as creator
+      };
+      
+      const validatedData = insertTaskSchema.parse(taskData);
       const task = await storage.createTask(validatedData);
+      
+      // If task is related to a change request, create an audit log entry for that too
+      if (task.relatedChangeRequestId) {
+        await logAuditAction(
+          req.user!.id,
+          "create_task_for_change_request",
+          "change_request",
+          task.relatedChangeRequestId.toString(),
+          `Created task: ${task.title} for change request ID: ${task.relatedChangeRequestId}`
+        );
+      }
       
       await logAuditAction(
         req.user!.id,
@@ -903,6 +919,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const task = await storage.updateTask(id, updateData);
+      
+      // If status changed and task is related to a change request, log it
+      if (req.body.status && req.body.status !== existingTask.status && existingTask.relatedChangeRequestId) {
+        await logAuditAction(
+          req.user!.id,
+          "update_task_status_for_change_request",
+          "change_request",
+          existingTask.relatedChangeRequestId.toString(),
+          `Updated task status: ${existingTask.title} to ${req.body.status} for change request ID: ${existingTask.relatedChangeRequestId}`
+        );
+      }
       
       await logAuditAction(
         req.user!.id,
