@@ -1,7 +1,7 @@
 import { 
   users, complianceFrameworks, complianceControls, evidence, 
   sites, devices, changeRequests, tasks, sprints, auditLogs,
-  pciDssControls
+  pciDssControls, changeRequestDevices
 } from "@shared/schema";
 import type { 
   User, InsertUser, 
@@ -11,6 +11,7 @@ import type {
   Site, InsertSite,
   Device, InsertDevice,
   ChangeRequest, InsertChangeRequest,
+  ChangeRequestDevice, InsertChangeRequestDevice,
   Task, InsertTask,
   Sprint, InsertSprint,
   AuditLog, InsertAuditLog,
@@ -1006,6 +1007,64 @@ export class PostgresStorage implements IStorage {
 
   async listAuditLogs(): Promise<AuditLog[]> {
     return await db.select().from(auditLogs).orderBy(desc(auditLogs.timestamp));
+  }
+  
+  // Change request to device relationship management
+  async addDeviceToChangeRequest(changeRequestDevice: InsertChangeRequestDevice): Promise<ChangeRequestDevice> {
+    const result = await db.insert(changeRequestDevices).values(changeRequestDevice).returning();
+    return result[0];
+  }
+  
+  async removeDeviceFromChangeRequest(changeRequestId: number, deviceId: number): Promise<void> {
+    await db.delete(changeRequestDevices)
+      .where(
+        and(
+          eq(changeRequestDevices.changeRequestId, changeRequestId),
+          eq(changeRequestDevices.deviceId, deviceId)
+        )
+      );
+  }
+  
+  async getDevicesForChangeRequest(changeRequestId: number): Promise<(Device & { impact: string, notes: string | null })[]> {
+    const deviceRelations = await db.select()
+      .from(changeRequestDevices)
+      .where(eq(changeRequestDevices.changeRequestId, changeRequestId));
+    
+    const result: (Device & { impact: string, notes: string | null })[] = [];
+    
+    for (const relation of deviceRelations) {
+      const deviceResult = await db.select()
+        .from(devices)
+        .where(eq(devices.id, relation.deviceId));
+      
+      if (deviceResult.length > 0) {
+        result.push({
+          ...deviceResult[0],
+          impact: relation.impact,
+          notes: relation.notes
+        });
+      }
+    }
+    
+    return result;
+  }
+  
+  async getChangeRequestsForDevice(deviceId: number): Promise<ChangeRequest[]> {
+    const changeRequestIds = await db.select()
+      .from(changeRequestDevices)
+      .where(eq(changeRequestDevices.deviceId, deviceId));
+    
+    if (changeRequestIds.length === 0) {
+      return [];
+    }
+    
+    const ids = changeRequestIds.map(relation => relation.changeRequestId);
+    
+    return await db.select()
+      .from(changeRequests)
+      .where(
+        ids.map(id => eq(changeRequests.id, id)).reduce((prev, curr) => or(prev, curr))
+      );
   }
 }
 
