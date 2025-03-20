@@ -1040,7 +1040,8 @@ export class PostgresStorage implements IStorage {
       if (deviceResult.length > 0) {
         result.push({
           ...deviceResult[0],
-          impact: relation.impact,
+          // Ensure impact is never null, default to 'affected'
+          impact: relation.impact ?? 'affected',
           notes: relation.notes
         });
       }

@@ -716,6 +716,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Change request device relationship API
+  app.get("/api/change-requests/:id/devices", isAuthenticated, async (req, res) => {
+    try {
+      const changeRequestId = parseInt(req.params.id);
+      const changeRequest = await storage.getChangeRequest(changeRequestId);
+      
+      if (!changeRequest) {
+        return res.status(404).json({ message: "Change request not found" });
+      }
+      
+      const devices = await storage.getDevicesForChangeRequest(changeRequestId);
+      res.json(devices);
+    } catch (error) {
+      console.error("Error fetching devices for change request:", error);
+      res.status(500).json({ message: "Failed to fetch devices for change request" });
+    }
+  });
+  
+  app.post("/api/change-requests/:id/devices", isAuthenticated, async (req, res) => {
+    try {
+      const changeRequestId = parseInt(req.params.id);
+      const { deviceId, impact, notes } = req.body;
+      
+      if (!deviceId) {
+        return res.status(400).json({ message: "Device ID is required" });
+      }
+      
+      const changeRequest = await storage.getChangeRequest(changeRequestId);
+      if (!changeRequest) {
+        return res.status(404).json({ message: "Change request not found" });
+      }
+      
+      const device = await storage.getDevice(deviceId);
+      if (!device) {
+        return res.status(404).json({ message: "Device not found" });
+      }
+      
+      // Check if change request is in editable state
+      const editableStates = ['draft', 'pending_approval'];
+      if (!editableStates.includes(changeRequest.status)) {
+        return res.status(400).json({ 
+          message: "Cannot modify devices for change requests that are already approved or implemented" 
+        });
+      }
+      
+      // Check if user is authorized
+      if (req.user!.id !== changeRequest.requestedBy && req.user!.role !== 'admin') {
+        return res.status(403).json({ message: "Not authorized to modify this change request" });
+      }
+      
+      const relationship = await storage.addDeviceToChangeRequest({
+        changeRequestId,
+        deviceId,
+        impact: impact || 'affected',
+        notes
+      });
+      
+      await logAuditAction(
+        req.user!.id,
+        "add_device_to_change_request",
+        "change_request_device",
+        `${changeRequestId}-${deviceId}`,
+        `Added device ${device.name} to change request ID: ${changeRequestId}`
+      );
+      
+      res.status(201).json(relationship);
+    } catch (error) {
+      console.error("Error adding device to change request:", error);
+      res.status(500).json({ message: "Failed to add device to change request" });
+    }
+  });
+  
+  app.delete("/api/change-requests/:changeRequestId/devices/:deviceId", isAuthenticated, async (req, res) => {
+    try {
+      const changeRequestId = parseInt(req.params.changeRequestId);
+      const deviceId = parseInt(req.params.deviceId);
+      
+      const changeRequest = await storage.getChangeRequest(changeRequestId);
+      if (!changeRequest) {
+        return res.status(404).json({ message: "Change request not found" });
+      }
+      
+      // Check if change request is in editable state
+      const editableStates = ['draft', 'pending_approval'];
+      if (!editableStates.includes(changeRequest.status)) {
+        return res.status(400).json({ 
+          message: "Cannot modify devices for change requests that are already approved or implemented" 
+        });
+      }
+      
+      // Check if user is authorized
+      if (req.user!.id !== changeRequest.requestedBy && req.user!.role !== 'admin') {
+        return res.status(403).json({ message: "Not authorized to modify this change request" });
+      }
+      
+      const device = await storage.getDevice(deviceId);
+      
+      await storage.removeDeviceFromChangeRequest(changeRequestId, deviceId);
+      
+      await logAuditAction(
+        req.user!.id,
+        "remove_device_from_change_request",
+        "change_request_device",
+        `${changeRequestId}-${deviceId}`,
+        `Removed device ${device?.name || deviceId} from change request ID: ${changeRequestId}`
+      );
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing device from change request:", error);
+      res.status(500).json({ message: "Failed to remove device from change request" });
+    }
+  });
+  
+  app.get("/api/devices/:id/change-requests", isAuthenticated, async (req, res) => {
+    try {
+      const deviceId = parseInt(req.params.id);
+      
+      const device = await storage.getDevice(deviceId);
+      if (!device) {
+        return res.status(404).json({ message: "Device not found" });
+      }
+      
+      const changeRequests = await storage.getChangeRequestsForDevice(deviceId);
+      res.json(changeRequests);
+    } catch (error) {
+      console.error("Error fetching change requests for device:", error);
+      res.status(500).json({ message: "Failed to fetch change requests for device" });
+    }
+  });
+
   // Tasks API
   app.get("/api/tasks", isAuthenticated, async (req, res) => {
     try {
