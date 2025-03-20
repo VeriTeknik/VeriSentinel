@@ -11,13 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Server, Network, HardDrive, Building, Pencil, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Loader2, Plus, Server, Network, HardDrive, Building, Pencil, CheckCircle2, XCircle, AlertCircle, Users, UserCircle, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Site, Device, insertSiteSchema, insertDeviceSchema } from "@shared/schema";
+import { Site, Device, User, Role, insertSiteSchema, insertDeviceSchema } from "@shared/schema";
 import { usePermissions } from "../hooks/use-permissions";
 import { useAuth } from "../hooks/use-auth";
 
@@ -50,12 +50,39 @@ export default function HardwareInventory() {
     staleTime: 5000
   });
 
+  // Fetch users for RACI assignments
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
+    queryKey: ['/api/users'],
+    refetchInterval: false,
+  });
+
+  // Available roles for RACI
+  const roles: Role[] = [
+    'admin',
+    'ciso',
+    'cto',
+    'security_manager',
+    'network_engineer',
+    'approver',
+    'implementer',
+    'user'
+  ];
+
   // Site form schema
   const siteFormSchema = z.object({
     name: z.string().min(1, "Name is required"),
     type: z.string().min(1, "Type is required"),
     location: z.string().optional(),
     description: z.string().optional(),
+    responsibleType: z.enum(["user", "role"]),
+    responsibleId: z.string().min(1, "Responsible person/role is required"),
+    accountableType: z.enum(["user", "role"]),
+    accountableId: z.string().min(1, "Accountable person/role is required"),
+    consultedType: z.enum(["user", "role"]),
+    consultedIds: z.string().optional(),
+    informedType: z.enum(["user", "role"]),
+    informedIds: z.string().optional(),
+    securityLevel: z.string().min(1, "Security level is required"),
   });
 
   const siteForm = useForm<z.infer<typeof siteFormSchema>>({
@@ -65,6 +92,11 @@ export default function HardwareInventory() {
       type: "primary",
       location: "",
       description: "",
+      responsibleType: "user",
+      accountableType: "user",
+      consultedType: "user",
+      informedType: "user",
+      securityLevel: "medium",
     },
   });
 
@@ -232,8 +264,16 @@ export default function HardwareInventory() {
     }
   };
 
+  // Helper function to get role display name
+  const getRoleDisplayName = (role: Role) => {
+    return role
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   // Loading state
-  if (isLoadingSites || isLoadingDevices || isLoadingUser) {
+  if (isLoadingSites || isLoadingDevices || isLoadingUsers || isLoadingUser) {
     return (
       <DashboardLayout title="Hardware Inventory">
         <div className="flex items-center justify-center h-64">
@@ -341,6 +381,326 @@ export default function HardwareInventory() {
                         <FormControl>
                           <Textarea placeholder="Enter site description" {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-sm">RACI Matrix Assignment</h3>
+                    
+                    {/* Responsible (R) */}
+                    <div className="space-y-4">
+                      <FormField
+                        control={siteForm.control}
+                        name="responsibleType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Responsible (R) Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="user">
+                                  <div className="flex items-center">
+                                    <UserCircle className="h-4 w-4 mr-2" />
+                                    Individual User
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="role">
+                                  <div className="flex items-center">
+                                    <Users className="h-4 w-4 mr-2" />
+                                    Role Group
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={siteForm.control}
+                        name="responsibleId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Responsible (R)</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select responsible person/role" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {siteForm.watch("responsibleType") === "user" ? (
+                                  users.map(user => (
+                                    <SelectItem key={user.id} value={user.id.toString()}>
+                                      <div className="flex items-center">
+                                        <UserCircle className="h-4 w-4 mr-2" />
+                                        {user.username}
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  roles.map(role => (
+                                    <SelectItem key={role} value={role}>
+                                      <div className="flex items-center">
+                                        <Shield className="h-4 w-4 mr-2" />
+                                        {getRoleDisplayName(role)}
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Accountable (A) */}
+                    <div className="space-y-4">
+                      <FormField
+                        control={siteForm.control}
+                        name="accountableType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Accountable (A) Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="user">
+                                  <div className="flex items-center">
+                                    <UserCircle className="h-4 w-4 mr-2" />
+                                    Individual User
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="role">
+                                  <div className="flex items-center">
+                                    <Users className="h-4 w-4 mr-2" />
+                                    Role Group
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={siteForm.control}
+                        name="accountableId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Accountable (A)</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select accountable person/role" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {siteForm.watch("accountableType") === "user" ? (
+                                  users.map(user => (
+                                    <SelectItem key={user.id} value={user.id.toString()}>
+                                      <div className="flex items-center">
+                                        <UserCircle className="h-4 w-4 mr-2" />
+                                        {user.username}
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  roles.map(role => (
+                                    <SelectItem key={role} value={role}>
+                                      <div className="flex items-center">
+                                        <Shield className="h-4 w-4 mr-2" />
+                                        {getRoleDisplayName(role)}
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Consulted (C) */}
+                    <div className="space-y-4">
+                      <FormField
+                        control={siteForm.control}
+                        name="consultedType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Consulted (C) Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="user">
+                                  <div className="flex items-center">
+                                    <UserCircle className="h-4 w-4 mr-2" />
+                                    Individual Users
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="role">
+                                  <div className="flex items-center">
+                                    <Users className="h-4 w-4 mr-2" />
+                                    Role Groups
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={siteForm.control}
+                        name="consultedIds"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Consulted (C)</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select people/roles to consult" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {siteForm.watch("consultedType") === "user" ? (
+                                  users.map(user => (
+                                    <SelectItem key={user.id} value={user.id.toString()}>
+                                      <div className="flex items-center">
+                                        <UserCircle className="h-4 w-4 mr-2" />
+                                        {user.username}
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  roles.map(role => (
+                                    <SelectItem key={role} value={role}>
+                                      <div className="flex items-center">
+                                        <Shield className="h-4 w-4 mr-2" />
+                                        {getRoleDisplayName(role)}
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Informed (I) */}
+                    <div className="space-y-4">
+                      <FormField
+                        control={siteForm.control}
+                        name="informedType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Informed (I) Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="user">
+                                  <div className="flex items-center">
+                                    <UserCircle className="h-4 w-4 mr-2" />
+                                    Individual Users
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="role">
+                                  <div className="flex items-center">
+                                    <Users className="h-4 w-4 mr-2" />
+                                    Role Groups
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={siteForm.control}
+                        name="informedIds"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Informed (I)</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select people/roles to inform" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {siteForm.watch("informedType") === "user" ? (
+                                  users.map(user => (
+                                    <SelectItem key={user.id} value={user.id.toString()}>
+                                      <div className="flex items-center">
+                                        <UserCircle className="h-4 w-4 mr-2" />
+                                        {user.username}
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  roles.map(role => (
+                                    <SelectItem key={role} value={role}>
+                                      <div className="flex items-center">
+                                        <Shield className="h-4 w-4 mr-2" />
+                                        {getRoleDisplayName(role)}
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <FormField
+                    control={siteForm.control}
+                    name="securityLevel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Security Level</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select security level" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="critical">Critical</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -553,7 +913,9 @@ export default function HardwareInventory() {
                     <TableHead>Name</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Location</TableHead>
-                    <TableHead>Description</TableHead>
+                    <TableHead>Responsible (R)</TableHead>
+                    <TableHead>Accountable (A)</TableHead>
+                    <TableHead>Security Level</TableHead>
                     <TableHead>Device Count</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -561,6 +923,12 @@ export default function HardwareInventory() {
                   {sites && sites.length > 0 ? (
                     sites.map((site) => {
                       const siteDevices = devices?.filter(d => d.siteId === site.id) || [];
+                      const responsibleDisplay = site.responsibleType === "user" 
+                        ? users.find(u => u.id.toString() === site.responsibleId)?.username 
+                        : getRoleDisplayName(site.responsibleId as Role);
+                      const accountableDisplay = site.accountableType === "user"
+                        ? users.find(u => u.id.toString() === site.accountableId)?.username
+                        : getRoleDisplayName(site.accountableId as Role);
                       
                       return (
                         <TableRow key={site.id}>
@@ -568,14 +936,38 @@ export default function HardwareInventory() {
                           <TableCell>{site.name}</TableCell>
                           <TableCell>{getSiteTypeBadge(site.type)}</TableCell>
                           <TableCell>{site.location || "-"}</TableCell>
-                          <TableCell>{site.description || "-"}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center">
+                              {site.responsibleType === "user" ? (
+                                <UserCircle className="h-4 w-4 mr-2" />
+                              ) : (
+                                <Shield className="h-4 w-4 mr-2" />
+                              )}
+                              {responsibleDisplay || "-"}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center">
+                              {site.accountableType === "user" ? (
+                                <UserCircle className="h-4 w-4 mr-2" />
+                              ) : (
+                                <Shield className="h-4 w-4 mr-2" />
+                              )}
+                              {accountableDisplay || "-"}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={site.securityLevel === "critical" ? "destructive" : "default"}>
+                              {site.securityLevel?.toUpperCase() || "-"}
+                            </Badge>
+                          </TableCell>
                           <TableCell>{siteDevices.length}</TableCell>
                         </TableRow>
                       );
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-4">
+                      <TableCell colSpan={8} className="text-center py-4">
                         No sites found. Add your first site to get started.
                       </TableCell>
                     </TableRow>

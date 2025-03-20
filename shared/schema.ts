@@ -81,11 +81,17 @@ export const sites = pgTable("sites", {
   type: text("type").notNull(), // primary, dr, branch
   location: text("location"),
   description: text("description"),
-  securityAdminId: integer("security_admin_id"), // CISO or delegate responsible for site security
-  siteAdminId: integer("site_admin_id"), // Admin responsible for overall site management
-  emergencyContactId: integer("emergency_contact_id"), // Emergency contact person
-  lastAuditDate: timestamp("last_audit_date"), // When was the site last audited
+  // RACI Matrix fields with role/user flexibility
+  responsibleType: text("responsible_type").notNull(), // "user" or "role"
+  responsibleId: text("responsible_id").notNull(), // user.id or role name
+  accountableType: text("accountable_type").notNull(), // "user" or "role"
+  accountableId: text("accountable_id").notNull(), // user.id or role name
+  consultedType: text("consulted_type").notNull(), // "user" or "role"
+  consultedIds: text("consulted_ids"), // Comma-separated user.ids or role names
+  informedType: text("informed_type").notNull(), // "user" or "role"
+  informedIds: text("informed_ids"), // Comma-separated user.ids or role names
   securityLevel: text("security_level"), // low, medium, high, critical
+  lastAuditDate: timestamp("last_audit_date"), // When was the site last audited
 });
 
 export const insertSiteSchema = createInsertSchema(sites).pick({
@@ -93,10 +99,16 @@ export const insertSiteSchema = createInsertSchema(sites).pick({
   type: true,
   location: true,
   description: true,
-  securityAdminId: true,
-  siteAdminId: true,
-  emergencyContactId: true,
+  responsibleType: true,
+  responsibleId: true,
+  accountableType: true,
+  accountableId: true,
+  consultedType: true,
+  consultedIds: true,
+  informedType: true,
+  informedIds: true,
   securityLevel: true,
+  lastAuditDate: true,
 });
 
 // Device model
@@ -364,3 +376,14 @@ export type InsertPciDssControl = z.infer<typeof insertPciDssControlSchema>;
 
 export type ChangeRequestDevice = typeof changeRequestDevices.$inferSelect;
 export type InsertChangeRequestDevice = z.infer<typeof insertChangeRequestDeviceSchema>;
+
+// Role type definition
+export type Role = 
+  | 'admin'
+  | 'ciso'
+  | 'cto'
+  | 'security_manager'
+  | 'network_engineer'
+  | 'approver'
+  | 'implementer'
+  | 'user';

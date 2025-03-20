@@ -5,16 +5,25 @@ console.log('Updating database schema to add new fields...');
 
 async function updateDatabaseSchema() {
   try {
-    // Adding new fields to sites table
+    // Adding RACI matrix fields to sites table with role support
     await db.execute(sql`
       ALTER TABLE sites 
-      ADD COLUMN IF NOT EXISTS security_admin_id INTEGER REFERENCES users(id),
-      ADD COLUMN IF NOT EXISTS site_admin_id INTEGER REFERENCES users(id),
-      ADD COLUMN IF NOT EXISTS emergency_contact_id INTEGER REFERENCES users(id),
-      ADD COLUMN IF NOT EXISTS last_audit_date TIMESTAMP,
-      ADD COLUMN IF NOT EXISTS security_level TEXT;
+      DROP COLUMN IF EXISTS responsible_user_id,
+      DROP COLUMN IF EXISTS accountable_user_id,
+      DROP COLUMN IF EXISTS consulted_user_ids,
+      DROP COLUMN IF EXISTS informed_user_ids,
+      ADD COLUMN IF NOT EXISTS responsible_type TEXT NOT NULL DEFAULT 'user',
+      ADD COLUMN IF NOT EXISTS responsible_id TEXT NOT NULL DEFAULT '1',
+      ADD COLUMN IF NOT EXISTS accountable_type TEXT NOT NULL DEFAULT 'user',
+      ADD COLUMN IF NOT EXISTS accountable_id TEXT NOT NULL DEFAULT '1',
+      ADD COLUMN IF NOT EXISTS consulted_type TEXT NOT NULL DEFAULT 'user',
+      ADD COLUMN IF NOT EXISTS consulted_ids TEXT,
+      ADD COLUMN IF NOT EXISTS informed_type TEXT NOT NULL DEFAULT 'user',
+      ADD COLUMN IF NOT EXISTS informed_ids TEXT,
+      ADD COLUMN IF NOT EXISTS security_level TEXT,
+      ADD COLUMN IF NOT EXISTS last_audit_date TIMESTAMP;
     `);
-    console.log('Updated sites table with new columns');
+    console.log('Updated sites table with role-based RACI matrix columns');
 
     // Adding new fields to devices table
     await db.execute(sql`
