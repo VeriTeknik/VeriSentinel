@@ -40,7 +40,7 @@ async function setupDatabase() {
     `);
     console.log('Created users table');
 
-    // Insert default users after setting up tables
+    // Create default users after tables are set up
     await createDefaultUsers();
 
     console.log('Database setup completed successfully.');
