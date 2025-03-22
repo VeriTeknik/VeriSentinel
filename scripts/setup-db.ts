@@ -1,5 +1,6 @@
 import { pool, db } from '../server/db';
 import { sql } from 'drizzle-orm';
+import { scrypt, randomBytes } from 'crypto';
 
 console.log('Setting up database schema...');
 
@@ -144,11 +145,43 @@ async function setupDatabase() {
     `);
     console.log('Created audit_logs table');
 
+    // Create default users after tables are set up
+    await createDefaultUsers();
+
     console.log('Database setup completed successfully.');
   } catch (error) {
     console.error('Error setting up database:', error);
   } finally {
     await pool.end();
+  }
+}
+
+async function hashPassword(password: string) {
+  const salt = randomBytes(16).toString('hex');
+  return new Promise<string>((resolve, reject) => {
+    scrypt(password, salt, 64, (err, derivedKey) => {
+      if (err) reject(err);
+      resolve(`${derivedKey.toString('hex')}.${salt}`);
+    });
+  });
+}
+
+async function createDefaultUsers() {
+  try {
+    const hashedPassword = await hashPassword('password123');
+
+    // Insert default users into the users table
+    await db.execute(sql`
+      INSERT INTO users (username, password, name, email, role, avatar)
+      VALUES
+        ('admin', ${hashedPassword}, 'Administrator', 'admin@example.com', 'admin', NULL),
+        ('ckaraca', ${hashedPassword}, 'Security Officer', 'ckaraca@example.com', 'security', NULL),
+        ('engineer', ${hashedPassword}, 'Network Engineer', 'engineer@example.com', 'engineer', NULL)
+      ON CONFLICT (username) DO NOTHING;
+    `);
+    console.log('Default users created successfully!');
+  } catch (error) {
+    console.error('Error creating default users:', error);
   }
 }
 
