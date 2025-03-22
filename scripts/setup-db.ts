@@ -1,11 +1,32 @@
 import { pool, db } from '../server/db';
 import { sql } from 'drizzle-orm';
+import { scrypt, randomBytes } from 'crypto';
+import { promisify } from 'util';
 
 console.log('Setting up database schema...');
 
+// Promisify scrypt function for easier usage
+const scryptAsync = promisify(scrypt);
+
+// Securely hash password using Scrypt with specific parameters
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex'); // Generate a random salt
+  const N = 16384, r = 8, p = 1; // Recommended Scrypt parameters
+  const derivedKey = (await scryptAsync(password, salt, 64, { N, r, p })) as Buffer;
+  return `${derivedKey.toString('hex')}.${salt}`; // Return hashed password with salt
+}
+
+// Function to verify hashed password
+async function verifyPassword(storedHash: string, inputPassword: string): Promise<boolean> {
+  const [hashedPassword, salt] = storedHash.split('.');
+  const N = 16384, r = 8, p = 1;
+  const derivedKey = (await scryptAsync(inputPassword, salt, 64, { N, r, p })) as Buffer;
+  return hashedPassword === derivedKey.toString('hex');
+}
+
 async function setupDatabase() {
   try {
-    // Create users table
+    // Create the "users" table if it does not exist
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -13,143 +34,46 @@ async function setupDatabase() {
         password TEXT NOT NULL,
         name TEXT NOT NULL,
         email TEXT NOT NULL,
-        role TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('admin', 'security', 'engineer')),
         avatar TEXT
       );
     `);
     console.log('Created users table');
 
-    // Create compliance_frameworks table
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS compliance_frameworks (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT
-      );
-    `);
-    console.log('Created compliance_frameworks table');
-
-    // Create compliance_controls table
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS compliance_controls (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        status TEXT NOT NULL,
-        description TEXT,
-        framework_id INTEGER NOT NULL REFERENCES compliance_frameworks(id),
-        severity TEXT NOT NULL,
-        due_date TIMESTAMP,
-        assigned_to INTEGER REFERENCES users(id),
-        last_checked TIMESTAMP
-      );
-    `);
-    console.log('Created compliance_controls table');
-
-    // Create evidence table
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS evidence (
-        id SERIAL PRIMARY KEY,
-        description TEXT,
-        control_id INTEGER NOT NULL REFERENCES compliance_controls(id),
-        file_path TEXT,
-        uploaded_by INTEGER NOT NULL REFERENCES users(id),
-        uploaded_at TIMESTAMP NOT NULL
-      );
-    `);
-    console.log('Created evidence table');
-
-    // Create sites table
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS sites (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        type TEXT NOT NULL,
-        description TEXT,
-        location TEXT
-      );
-    `);
-    console.log('Created sites table');
-
-    // Create devices table
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS devices (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        type TEXT NOT NULL,
-        status TEXT NOT NULL,
-        site_id INTEGER NOT NULL REFERENCES sites(id),
-        ip_address TEXT,
-        vlan TEXT,
-        operating_system TEXT,
-        services TEXT
-      );
-    `);
-    console.log('Created devices table');
-
-    // Create change_requests table
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS change_requests (
-        id SERIAL PRIMARY KEY,
-        title TEXT NOT NULL,
-        description TEXT,
-        status TEXT NOT NULL,
-        requested_by INTEGER NOT NULL REFERENCES users(id),
-        approver_id INTEGER REFERENCES users(id),
-        implementer_id INTEGER REFERENCES users(id),
-        requested_at TIMESTAMP NOT NULL,
-        approved_at TIMESTAMP,
-        implemented_at TIMESTAMP
-      );
-    `);
-    console.log('Created change_requests table');
-
-    // Create sprints table (needs to be before tasks which references it)
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS sprints (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        start_date TIMESTAMP NOT NULL,
-        end_date TIMESTAMP NOT NULL,
-        status TEXT NOT NULL
-      );
-    `);
-    console.log('Created sprints table');
-
-    // Create tasks table
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS tasks (
-        id SERIAL PRIMARY KEY,
-        title TEXT NOT NULL,
-        description TEXT,
-        status TEXT NOT NULL,
-        due_date TIMESTAMP,
-        assigned_to INTEGER REFERENCES users(id),
-        related_control_id INTEGER REFERENCES compliance_controls(id),
-        sprint_id INTEGER REFERENCES sprints(id)
-      );
-    `);
-    console.log('Created tasks table');
-
-    // Create audit_logs table
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS audit_logs (
-        id SERIAL PRIMARY KEY,
-        action TEXT NOT NULL,
-        user_id INTEGER NOT NULL REFERENCES users(id),
-        resource_type TEXT NOT NULL,
-        resource_id TEXT NOT NULL,
-        details TEXT,
-        timestamp TIMESTAMP NOT NULL
-      );
-    `);
-    console.log('Created audit_logs table');
+    // Create default users after tables are set up
+    await createDefaultUsers();
 
     console.log('Database setup completed successfully.');
   } catch (error) {
     console.error('Error setting up database:', error);
   } finally {
+    // Close the database connection properly
     await pool.end();
+    process.exit(0);
   }
 }
 
+// Function to create default users with the same password
+async function createDefaultUsers() {
+  try {
+    // Use environment variable for the default password
+    const defaultPassword = process.env.DEFAULT_PASSWORD || 'password123';
+    const commonHashedPassword = await hashPassword(defaultPassword);
+
+    // Insert default users into the "users" table
+    await db.execute(sql`
+      INSERT INTO users (username, password, name, email, role, avatar)
+      VALUES
+        ('admin', ${commonHashedPassword}, 'Administrator', 'admin@example.com', 'admin', NULL),
+        ('ckaraca', ${commonHashedPassword}, 'Security Officer', 'ckaraca@example.com', 'security', NULL),
+        ('engineer', ${commonHashedPassword}, 'Network Engineer', 'engineer@example.com', 'engineer', NULL)
+      ON CONFLICT (username) DO NOTHING;
+    `);
+    console.log('Default users created successfully!');
+  } catch (error) {
+    console.error('Error creating default users:', error);
+  }
+}
+
+// Start the database setup process
 setupDatabase();
