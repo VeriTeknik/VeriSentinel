@@ -26,16 +26,16 @@ async function comparePasswords(supplied: string, stored: string) {
   if (!stored.includes(".")) {
     return false;
   }
-  
+
   const [hashed, salt] = stored.split(".");
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  
+
   // Ensure both buffers have the same length
   if (hashedBuf.length !== suppliedBuf.length) {
     return false;
   }
-  
+
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
@@ -54,19 +54,40 @@ export function setupAuth(app: Express) {
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
-      const user = await storage.getUserByUsername(username);
-      if (!user || !(await comparePasswords(password, user.password))) {
-        return done(null, false);
-      } else {
-        return done(null, user);
+      try {
+        const user = await storage.getUserByUsername(username);
+        if (!user || !(await comparePasswords(password, user.password))) {
+          console.log(`Login failed for username: ${username}`); // Error logging
+          return done(null, false);
+        } else {
+          console.log(`User ${username} authenticated successfully`); // Success logging
+          return done(null, user);
+        }
+      } catch (error) {
+        console.error("Error during authentication:", error); // Error logging
+        return done(error);
       }
     }),
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user, done) => {
+    console.log("Serializing user:", user); // Logging: which user is being serialized
+    done(null, user.id);
+  });
+
   passport.deserializeUser(async (id: number, done) => {
-    const user = await storage.getUser(id);
-    done(null, user);
+    console.log("Deserializing user with ID:", id); // Logging: which ID is being deserialized
+    try {
+      const user = await storage.getUser(id);
+      if (!user) {
+        console.error("User not found:", id); // Error logging
+        return done(new Error("User not found"), null);
+      }
+      done(null, user); // Successfully return the user
+    } catch (error) {
+      console.error("Error deserializing user:", error); // Error logging
+      done(error, null);
+    }
   });
 
   app.post("/api/register", async (req, res, next) => {
@@ -89,18 +110,19 @@ export function setupAuth(app: Express) {
         action: "user_registered",
         resource: `user/${user.id}`,
         message: `User ${user.username} registered`,
-        complianceStandards: []
+        complianceStandards: [],
       });
 
       req.login(user, (err) => {
         if (err) return next(err);
-        
+
         // Remove password from response
         const { password, ...userResponse } = user;
-        
+
         res.status(201).json(userResponse);
       });
     } catch (error) {
+      console.error("Error during registration:", error); // Error logging
       next(error);
     }
   });
@@ -114,12 +136,12 @@ export function setupAuth(app: Express) {
         action: "user_login",
         resource: `user/${req.user.id}`,
         message: `User ${req.user.username} logged in`,
-        complianceStandards: []
+        complianceStandards: [],
       });
-      
+
       // Remove password from response
       const { password, ...userResponse } = req.user;
-      
+
       res.status(200).json(userResponse);
     } else {
       res.status(401).json({ message: "Authentication failed" });
@@ -135,10 +157,10 @@ export function setupAuth(app: Express) {
         action: "user_logout",
         resource: `user/${req.user.id}`,
         message: `User ${req.user.username} logged out`,
-        complianceStandards: []
+        complianceStandards: [],
       });
     }
-    
+
     req.logout((err) => {
       if (err) return next(err);
       res.sendStatus(200);
@@ -147,32 +169,43 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
+
     // Remove password from response
     const { password, ...userResponse } = req.user;
-    
+
     res.json(userResponse);
   });
-  
+
   app.get("/api/users", (req, res, next) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
+
     // Check if user has management role
-    const managementRoles = ["admin", "ciso", "cto", "security_manager", "network_engineer"];
+    const managementRoles = [
+      "admin",
+      "ciso",
+      "cto",
+      "security_manager",
+      "network_engineer",
+    ];
     if (!managementRoles.includes(req.user.role)) {
       return res.status(403).send("Unauthorized access");
     }
-    
-    storage.listUsers()
-      .then(users => {
+
+    storage
+      .listUsers()
+      .then((users) => {
         // Remove passwords from response
-        const sanitizedUsers = users.map(user => {
+        const sanitizedUsers = users.map((user) => {
           const { password, ...sanitizedUser } = user;
           return sanitizedUser;
         });
-        
+
         res.json(sanitizedUsers);
       })
-      .catch(next);
+      .catch((error) => {
+        console.error("Error listing users:", error); // Error logging
+        next(error);
+      });
   });
 }
+
